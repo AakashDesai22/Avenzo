@@ -1,6 +1,6 @@
 # AVENZO — Project Status & Roadmap
 
-> Document Status: **ACTIVE — Phase 1 Complete**
+> Document Status: **ACTIVE — Phase 2 Complete**
 > Last Updated: 2026-08-15
 > Active Branch: `develop`
 
@@ -9,8 +9,8 @@
 ## Overall Progress Overview
 
 ```
-[Phase 0: Foundation] ──────► [Phase 1: Core Backend] ──────► [Phase 2: Inventory Intel & FEFO]
-       ✅ COMPLETE                    ✅ COMPLETE                        ⏳ PLANNED
+[Phase 0: Foundation] ──► [Phase 1: Core Backend] ──► [Phase 2: Inventory Intel & FEFO] ──► [Phase 3: Consumer App]
+       ✅ COMPLETE               ✅ COMPLETE                       ✅ COMPLETE                    ⏳ PLANNED
 ```
 
 ---
@@ -21,7 +21,7 @@
 |-------|-------------|------------------|--------|-------|
 | **Phase 0** | Foundation + Architecture | Monorepo / Docs | ✅ **COMPLETE** | Initial repo structure, docs, scaffolds |
 | **Phase 1** | Core Backend & Database Foundation | Backend / DB | ✅ **COMPLETE** | PostgreSQL, Alembic, Auth, Products, Warehouses, Batches, Inventory, 17/17 tests passing |
-| **Phase 2** | Inventory Intelligence & FEFO | Backend / AI | ⏳ PLANNED | FEFO algorithms, batch prioritization, expiry alerts |
+| **Phase 2** | Inventory Intelligence & FEFO | Backend / FEFO | ✅ **COMPLETE** | FEFO 5-level ranking, non-mutating allocation preview, FEFO violation audit logs, Expiry & Risk metrics, 23/23 tests passing |
 | **Phase 3** | Consumer App Foundation | Flutter Mobile | ⏳ PLANNED | Riverpod UI, auth screens, pantry, scanning |
 | **Phase 4** | Business Web Foundation | React / Web | ⏳ PLANNED | Management dashboard, product/batch CRUD UI |
 | **Phase 5** | AI Services Integration | AI Service | ⏳ PLANNED | Demand forecasting, waste prediction, OCR |
@@ -30,21 +30,19 @@
 
 ---
 
-## Phase 1 Implementation Breakdown
+## Phase 2 Implementation Breakdown
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| PostgreSQL via Docker | ✅ IMPLEMENTED | Container `avenzo_postgres_dev` running on port 5432 |
-| Async SQLAlchemy 2.x | ✅ IMPLEMENTED | `backend/app/core/database.py` with asyncpg driver |
-| Alembic Migrations | ✅ IMPLEMENTED | Initial revision `f8fe01bb5199` applied (`alembic upgrade head`) |
-| User & RBAC Models | ✅ IMPLEMENTED | `users`, `roles` (`ADMIN`, `BUSINESS_MANAGER`, `STAFF`, `CONSUMER`), `permissions`, `role_permissions` |
-| JWT Authentication API | ✅ IMPLEMENTED | `/api/v1/auth/register`, `/api/v1/auth/login`, `/api/v1/auth/refresh`, `/api/v1/auth/me` |
-| Product Master API | ✅ IMPLEMENTED | `/api/v1/products`, `/api/v1/categories`, `/api/v1/suppliers` |
-| Warehouse & Location API | ✅ IMPLEMENTED | `/api/v1/warehouses`, multi-warehouse support enabled |
-| Batch & Expiry API | ✅ IMPLEMENTED | `/api/v1/batches`, date validation (expiry >= manufacturing) enforced |
-| Inventory & Audit API | ✅ IMPLEMENTED | `/api/v1/inventory`, `/api/v1/inventory/adjust`, `/api/v1/inventory/transactions` |
-| Pytest Test Suite | ✅ IMPLEMENTED | 17/17 tests passing (100% pass rate) |
+| Centralized Config & Business Date | ✅ IMPLEMENTED | `EXPIRING_SOON = 30`, `CRITICAL = 7` in `config.py`, `get_business_date()` in `date_utils.py` |
+| Alembic Migration for FEFO Sort Index | ✅ IMPLEMENTED | Revision `3ac1dfeaac26` applied (`ix_batches_fefo_sort` on `expiry_date`, `created_at`) |
+| Expiry Intelligence Service | ✅ IMPLEMENTED | DTE calculation, status classification (`SAFE`, `EXPIRING_SOON`, `CRITICAL`, `EXPIRED`, `N/A`), non-expiry product protection |
+| Expiry Summary & Risk Metrics | ✅ IMPLEMENTED | `/api/v1/inventory/expiry-summary`, `/api/v1/inventory/risk-metrics` (capital exposure using `cost_price`, sales exposure using `unit_price`) |
+| FEFO 5-Level Ranking Engine | ✅ IMPLEMENTED | Deterministic ranking (`expiry_date ASC`, `mfg_date ASC`, `created_at ASC`, `qty_available DESC`, `batch.id ASC`) |
+| FEFO Allocation Preview API | ✅ IMPLEMENTED | `POST /api/v1/fefo/allocate` (100% read-only, non-mutating preview) |
+| FEFO Violation & Audit Log API | ✅ IMPLEMENTED | `POST /api/v1/fefo/verify-selection` (non-blocking warning + `FEFO_VIOLATION` audit transaction) |
+| Pytest Test Suite | ✅ IMPLEMENTED | 23/23 tests passing (100% pass rate) |
 
 ---
 
-*AVENZO Project Status — Phase 1 Complete*
+*AVENZO Project Status — Phase 2 Complete*
