@@ -3,7 +3,7 @@ AVENZO Backend — Batch, Inventory, and Inventory Transaction Models
 ORM definitions for Inventory management foundation.
 """
 
-from sqlalchemy import Column, String, ForeignKey, Text, Integer, Date, DateTime, UniqueConstraint
+from sqlalchemy import Column, String, ForeignKey, Text, Integer, Date, DateTime, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -16,6 +16,7 @@ class Batch(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "batches"
     __table_args__ = (
         UniqueConstraint("product_id", "batch_number", name="uq_product_batch_number"),
+        Index("ix_batches_fefo_sort", "expiry_date", "created_at"),
     )
 
     product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True)

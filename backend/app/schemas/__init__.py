@@ -1,6 +1,6 @@
 """
 AVENZO Backend — Schemas Package
-Exports all Phase 1 Pydantic Request and Response models.
+Exports all Phase 1 and Phase 2 Pydantic Request and Response models.
 """
 
 from app.schemas.common import ApiResponse, PaginationMeta, ErrorDetail
@@ -12,6 +12,15 @@ from app.schemas.warehouse import WarehouseCreate, WarehouseRead, WarehouseUpdat
 from app.schemas.supplier import SupplierCreate, SupplierRead, SupplierUpdate
 from app.schemas.batch import BatchCreate, BatchRead, BatchUpdate
 from app.schemas.inventory import InventoryRead, InventoryAdjustRequest, InventoryTransactionRead
+from app.schemas.fefo import (
+    FEFORankedBatchRead,
+    FEFOAllocationRequest,
+    FEFOBatchAllocationItem,
+    FEFOAllocationPlanResponse,
+    FEFOVerificationRequest,
+    FEFOVerificationResponse,
+)
+from app.schemas.expiry import ExpirySummaryResponse, InventoryRiskMetricsResponse
 
 __all__ = [
     "ApiResponse",
@@ -45,4 +54,12 @@ __all__ = [
     "InventoryRead",
     "InventoryAdjustRequest",
     "InventoryTransactionRead",
+    "FEFORankedBatchRead",
+    "FEFOAllocationRequest",
+    "FEFOBatchAllocationItem",
+    "FEFOAllocationPlanResponse",
+    "FEFOVerificationRequest",
+    "FEFOVerificationResponse",
+    "ExpirySummaryResponse",
+    "InventoryRiskMetricsResponse",
 ]
