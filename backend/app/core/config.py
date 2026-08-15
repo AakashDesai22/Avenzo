@@ -6,7 +6,6 @@ No hardcoded values allowed.
 """
 
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
 from typing import List
 
 
@@ -43,6 +42,10 @@ class Settings(BaseSettings):
     @property
     def ALLOWED_ORIGINS(self) -> List[str]:
         return [origin.strip() for origin in self.ALLOWED_ORIGINS_STR.split(",")]
+
+    # Inventory & Expiry Threshold Defaults (Centralized App-Level Config)
+    EXPIRING_SOON_THRESHOLD_DAYS: int = 30
+    CRITICAL_THRESHOLD_DAYS: int = 7
 
     # AI Service
     AI_SERVICE_URL: str = "http://localhost:8001"
