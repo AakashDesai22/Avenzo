@@ -20,6 +20,8 @@ from app.api.v1 import (
     suppliers,
     batches,
     inventory,
+    fefo,
+    expiry,
 )
 
 # Configure logging
@@ -80,7 +82,9 @@ def create_app() -> FastAPI:
     app.include_router(warehouses.router, prefix="/api/v1")
     app.include_router(suppliers.router, prefix="/api/v1")
     app.include_router(batches.router, prefix="/api/v1")
+    app.include_router(expiry.router, prefix="/api/v1")
     app.include_router(inventory.router, prefix="/api/v1")
+    app.include_router(fefo.router, prefix="/api/v1")
 
     return app
 
