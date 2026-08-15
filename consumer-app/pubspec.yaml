@@ -1,0 +1,77 @@
+name: avenzo_consumer
+description: >
+  AVENZO Consumer Mobile Application.
+  AI-Driven Product Lifecycle Intelligence Platform.
+  One Product. One Lifecycle. One Intelligence.
+
+publish_to: 'none'
+
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+  flutter: '>=3.16.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.3.5
+
+  # Navigation
+  go_router: ^14.6.2
+
+  # HTTP Client
+  dio: ^5.7.0
+
+  # Firebase
+  firebase_core: ^3.8.1
+  firebase_messaging: ^15.1.6
+
+  # Scanning
+  mobile_scanner: ^6.0.2
+
+  # Images
+  image_picker: ^1.1.2
+
+  # Local Storage
+  shared_preferences: ^2.3.4
+
+  # Notifications
+  flutter_local_notifications: ^18.0.1
+
+  # Utilities
+  intl: ^0.19.0
+  equatable: ^2.0.7
+  json_annotation: ^4.9.0
+
+  # UI
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Code generation
+  build_runner: ^2.4.13
+  json_serializable: ^6.8.0
+  riverpod_generator: ^2.4.3
+
+  # Linting
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Future: Add assets
+  # assets:
+  #   - assets/images/
+  #   - assets/icons/
+
+  # Future: Add fonts
+  # fonts:
+  #   - family: Inter
+  #     fonts:
+  #       - asset: assets/fonts/Inter-Regular.ttf

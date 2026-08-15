@@ -1,0 +1,88 @@
+# =============================================================================
+# AVENZO — Docker Compose (Development)
+# Starts: PostgreSQL database
+# Backend can be run locally or via Docker (see below)
+# =============================================================================
+#
+# Usage:
+#   Start only PostgreSQL:
+#   docker compose -f infrastructure/docker/docker-compose.dev.yml up -d postgres
+#
+#   Start all services (including backend):
+#   docker compose -f infrastructure/docker/docker-compose.dev.yml up -d
+#
+#   Stop all:
+#   docker compose -f infrastructure/docker/docker-compose.dev.yml down
+#
+#   View logs:
+#   docker compose -f infrastructure/docker/docker-compose.dev.yml logs -f
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: avenzo_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-avenzo_db}
+      POSTGRES_USER: ${DATABASE_USER:-avenzo_user}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-devpassword123}
+    ports:
+      - "${DATABASE_PORT:-5432}:5432"
+    volumes:
+      - avenzo_postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-avenzo_user} -d ${DATABASE_NAME:-avenzo_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - avenzo_dev_network
+
+  # ---------------------------------------------------------------------------
+  # FastAPI Backend
+  # Comment this out if running the backend locally outside Docker
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    container_name: avenzo_backend_dev
+    restart: unless-stopped
+    env_file:
+      - ../../backend/.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DATABASE_USER:-avenzo_user}:${DATABASE_PASSWORD:-devpassword123}@postgres:5432/${DATABASE_NAME:-avenzo_db}
+      - APP_ENV=development
+      - APP_DEBUG=true
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../../backend:/app
+    networks:
+      - avenzo_dev_network
+    profiles:
+      - full   # Only start with: docker compose --profile full up -d
+
+# ---------------------------------------------------------------------------
+# Volumes
+# ---------------------------------------------------------------------------
+volumes:
+  avenzo_postgres_data:
+    name: avenzo_postgres_data_dev
+
+# ---------------------------------------------------------------------------
+# Networks
+# ---------------------------------------------------------------------------
+networks:
+  avenzo_dev_network:
+    name: avenzo_dev_network

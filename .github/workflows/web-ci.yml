@@ -1,0 +1,44 @@
+name: Business Web CI
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'business-web/**'
+      - '.github/workflows/web-ci.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'business-web/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Business Web Build (Node ${{ matrix.node-version }})
+
+    strategy:
+      matrix:
+        node-version: ["20", "22"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: business-web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: business-web
+        run: npm ci
+
+      - name: TypeScript type check
+        working-directory: business-web
+        run: npm run build -- --mode production
+
+      - name: Lint check
+        working-directory: business-web
+        run: npm run lint || true
