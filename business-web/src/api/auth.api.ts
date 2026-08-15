@@ -1,61 +1,22 @@
 /**
- * AVENZO Business Web — Auth API
- * Authentication-related API calls.
- * Phase 1+ implementation.
+ * AVENZO Business Web — Auth API Wrapper
  */
 
-import { apiPost } from './client';
+import { apiPost, apiGet, clearTokens, setTokens, ApiResponse } from './client';
+import { LoginRequest, TokenResponse, User } from '../types/auth';
 
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface LoginResponse {
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
-  user: {
-    id: string;
-    email: string;
-    first_name: string;
-    last_name: string;
-    role: string;
-  };
-}
-
-export interface RefreshTokenRequest {
-  refresh_token: string;
-}
-
-/**
- * Login with email and password.
- * Stores tokens in localStorage after successful login.
- */
-export async function login(credentials: LoginRequest) {
-  const response = await apiPost<LoginResponse>('/auth/login', credentials);
-
-  if (response.success && response.data) {
-    localStorage.setItem('avenzo_access_token', response.data.access_token);
-    localStorage.setItem('avenzo_refresh_token', response.data.refresh_token);
+export async function loginApi(credentials: LoginRequest): Promise<ApiResponse<TokenResponse>> {
+  const res = await apiPost<TokenResponse>('/auth/login', credentials);
+  if (res.success && res.data) {
+    setTokens(res.data.access_token, res.data.refresh_token);
   }
-
-  return response;
+  return res;
 }
 
-/**
- * Logout — removes stored tokens.
- */
-export function logout() {
-  localStorage.removeItem('avenzo_access_token');
-  localStorage.removeItem('avenzo_refresh_token');
+export async function getMeApi(): Promise<ApiResponse<User>> {
+  return apiGet<User>('/auth/me');
 }
 
-/**
- * Refresh the access token.
- */
-export function refreshAccessToken(refreshToken: string) {
-  return apiPost<{ access_token: string }>('/auth/refresh', {
-    refresh_token: refreshToken,
-  });
+export function logoutApi(): void {
+  clearTokens();
 }
