@@ -96,8 +96,8 @@ consumer-app/.dart_tool/
 consumer-app/.flutter-plugins
 consumer-app/.flutter-plugins-dependencies
 consumer-app/.packages
-consumer-app/android/app/
-consumer-app/ios/Flutter/
+consumer-app/android/
+consumer-app/ios/
 consumer-app/pubspec.lock
 
 # Docker / Logs
