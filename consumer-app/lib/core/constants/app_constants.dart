@@ -1,7 +1,6 @@
-/// AVENZO Consumer App — App Constants
-///
-/// All API URLs, config values, and app-wide constants.
-/// NO hardcoded URLs allowed in feature code — use this file.
+// AVENZO Consumer App — App Constants
+// All API URLs, config values, and app-wide constants.
+// NO hardcoded URLs allowed in feature code — use this file.
 
 class AppConstants {
   AppConstants._(); // Prevent instantiation

@@ -1,7 +1,7 @@
 # AVENZO — Project Status & Roadmap
 
-> Document Status: **ACTIVE — Phase 3 Complete**
-> Last Updated: 2026-08-15
+> Document Status: **ACTIVE — Phase 4 Complete**
+> Last Updated: 2026-08-18
 > Active Branch: `develop`
 
 ---
@@ -9,8 +9,8 @@
 ## Overall Progress Overview
 
 ```
-[Phase 0: Foundation] ──► [Phase 1: Core Backend] ──► [Phase 2: Inventory Intel & FEFO] ──► [Phase 3: Business Web]
-       ✅ COMPLETE               ✅ COMPLETE                       ✅ COMPLETE                    ✅ COMPLETE
+[Phase 0: Foundation] ──► [Phase 1: Core Backend] ──► [Phase 2: Inventory Intel & FEFO] ──► [Phase 3: Business Web] ──► [Phase 4: Consumer App Foundation]
+       ✅ COMPLETE               ✅ COMPLETE                       ✅ COMPLETE                    ✅ COMPLETE                     ✅ COMPLETE
 ```
 
 ---
@@ -23,28 +23,27 @@
 | **Phase 1** | Core Backend & Database Foundation | Backend / DB | ✅ **COMPLETE** | PostgreSQL, Alembic, Auth, Products, Warehouses, Batches, Inventory, 17/17 tests passing |
 | **Phase 2** | Inventory Intelligence & FEFO | Backend / FEFO | ✅ **COMPLETE** | FEFO 5-level ranking, non-mutating allocation preview, FEFO violation audit logs, Expiry & Risk metrics, 23/23 tests passing |
 | **Phase 3** | Business Web Foundation | React / Web | ✅ **COMPLETE** | Vite, React 19, TypeScript, React Router, TanStack Query, AuthContext, Dashboard, Product, Category, Inventory, Batches, FEFO Preview & Risk Screens |
-| **Phase 4** | Consumer App Foundation | Flutter Mobile | ⏳ PLANNED | Riverpod UI, auth screens, pantry, scanning |
+| **Phase 4** | Consumer App Foundation | Flutter Mobile | ✅ **COMPLETE** | Riverpod 2.x, GoRouter, Dio 5.x, flutter_secure_storage, Material 3 Consumer theme, Auth, Role validation via /auth/me, Navigation Shell, 11/11 tests passing |
 | **Phase 5** | AI Services Integration | AI Service | ⏳ PLANNED | Demand forecasting, waste prediction, OCR |
 | **Phase 6** | Notifications & Integrations | FCM / System | ⏳ PLANNED | Push alerts, webhooks, third-party sync |
 | **Phase 7** | System Hardening & Deployment | Infrastructure | ⏳ PLANNED | Security audit, performance tuning, production setup |
 
 ---
 
-## Phase 3 Implementation Breakdown
+## Phase 4 Implementation Breakdown
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| Approved Dependencies | ✅ IMPLEMENTED | `react-router-dom`, `lucide-react`, `@tanstack/react-query`, `vitest`, `happy-dom` |
-| Design Tokens & Formatting | ✅ IMPLEMENTED | Enterprise Slate & Emerald palette in `tokens.css`, centralized INR (`₹`) currency formatting in `formatters.ts` |
-| Token Refresh & API Client | ✅ IMPLEMENTED | `client.ts` with automatic 401 single-retry token refresh logic via `/auth/refresh` |
-| Auth & Role Guards | ✅ IMPLEMENTED | `AuthContext` + `RoleGuard` protecting routes (`ADMIN`, `BUSINESS_MANAGER`, `STAFF`); strict rejection of `CONSUMER` accounts |
-| Operational Dashboard Page | ✅ IMPLEMENTED | `/dashboard` displaying 4 Expiry KPI Cards, Financial Capital Exposure (`cost_price`), and Expiry Status Breakdown |
-| Product & Category Management Pages | ✅ IMPLEMENTED | `/products` and `/categories` with search, category filtering, and modal CRUD |
-| Inventory & Batches Pages | ✅ IMPLEMENTED | `/inventory` (balances + audit log) and `/batches` with manufacturing/expiry date validation |
-| FEFO Intelligence & Allocation Preview Page | ✅ IMPLEMENTED | `/fefo` with 5-level ranked table, read-only preview allocation modal with prominent notice banner, and non-blocking violation warning modal |
-| Inventory Risk & Exposure Page | ✅ IMPLEMENTED | `/risk` with financial capital exposure vs potential sales revenue |
-| Build & Compilation | ✅ IMPLEMENTED | `npm run build` succeeds in 341ms with 0 errors |
+| Approved Dependencies | ✅ IMPLEMENTED | `flutter_riverpod`, `riverpod_annotation`, `go_router`, `dio`, `flutter_secure_storage`, `intl`, `equatable` |
+| Consumer Design System | ✅ IMPLEMENTED | Fresh Emerald Green (`#0D9488`) & Mint palette, Material 3 `AppTheme`, custom typography, reusable `AvenzoButton` & `AvenzoTextField` |
+| Secure Storage & Tokens | ✅ IMPLEMENTED | `SecureStorageService` wrapping `flutter_secure_storage` for JWT `access_token` and `refresh_token` persistence |
+| ApiClient & Token Refresh | ✅ IMPLEMENTED | `ApiClient` wrapping Dio with `AuthInterceptor` handling Bearer token injection and queued 401 refresh flow via `/api/v1/auth/refresh` |
+| Consumer Role Validation | ✅ IMPLEMENTED | `AuthRepository` and `AuthNotifier` validating authenticated profile via backend `GET /api/v1/auth/me`. Rejects non-CONSUMER roles (`STAFF`, `ADMIN`), revokes session, and presents clear error UI |
+| Router & Auth Guards | ✅ IMPLEMENTED | `GoRouter` setup with `/splash`, `/login`, `/register`, and `StatefulShellRoute` protecting consumer screens |
+| Consumer Screens & Shells | ✅ IMPLEMENTED | `SplashScreen`, `LoginScreen`, `RegisterScreen`, `BottomNavShell`, `HomeDashboardScreen`, `PantryScreenShell` (planned backend notice), `ScannerScreenShell` (scanner placeholder), `ExpiryScreenShell` (tracking notice), and `ProfileScreen` |
+| Test Suite & Verification | ✅ IMPLEMENTED | 11/11 tests passing (`flutter test`), 0 issues in `flutter analyze` |
+| Deferred Features | ⏳ PLANNED | Digital Pantry CRUD, Live Barcode Scanner, OCR Label Extraction, Push Notifications (deferred to Phases 5 & 6) |
 
 ---
 
-*AVENZO Project Status — Phase 3 Complete*
+*AVENZO Project Status — Phase 4 Complete*

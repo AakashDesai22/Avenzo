@@ -40,6 +40,7 @@ void main() {
       final handler = RequestInterceptorHandler();
 
       interceptor.onRequest(options, handler);
+      await Future.delayed(Duration.zero);
 
       expect(options.headers['Authorization'], equals('Bearer test_access_token'));
     });
@@ -52,6 +53,7 @@ void main() {
       final handler = RequestInterceptorHandler();
 
       interceptor.onRequest(options, handler);
+      await Future.delayed(Duration.zero);
 
       expect(options.headers.containsKey('Authorization'), isFalse);
     });

@@ -1,11 +1,6 @@
-/// AVENZO Consumer App — API Service
-///
-/// Central HTTP client for all API communication.
-/// All network calls MUST go through this class.
-/// No direct HTTP calls allowed in feature code.
-///
-/// NOTE: Full implementation in Phase 3.
-/// Uses Dio as the HTTP client.
+// AVENZO Consumer App — API Service
+// Central HTTP client for all API communication.
+// All network calls MUST go through ApiClient.
 
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';

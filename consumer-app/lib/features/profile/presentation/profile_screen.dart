@@ -122,7 +122,7 @@ class ProfileScreen extends ConsumerWidget {
                     subtitle: const Text('7 days & 3 days alerts'),
                     trailing: Switch(
                       value: true,
-                      activeColor: AppColors.primary,
+                      activeTrackColor: AppColors.primary,
                       onChanged: (val) {},
                     ),
                   ),
