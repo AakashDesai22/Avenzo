@@ -36,7 +36,7 @@
 |-----------|--------|---------|
 | Approved Dependencies | ✅ IMPLEMENTED | `flutter_riverpod`, `riverpod_annotation`, `go_router`, `dio`, `flutter_secure_storage`, `intl`, `equatable` |
 | Consumer Design System | ✅ IMPLEMENTED | Fresh Emerald Green (`#0D9488`) & Mint palette, Material 3 `AppTheme`, custom typography, reusable `AvenzoButton` & `AvenzoTextField` |
-| Secure Storage & Tokens | ✅ IMPLEMENTED | `SecureStorageService` wrapping `flutter_secure_storage` for JWT `access_token` and `refresh_token` persistence |
+| Secure Storage & Tokens | ✅ IMPLEMENTED | `SecureStorageService` wrapping `flutter_secure_storage` for JWT `access_token` and `refresh_token` persistence via secure platform-backed storage using Android Keystore/EncryptedSharedPreferences and iOS Keychain |
 | ApiClient & Token Refresh | ✅ IMPLEMENTED | `ApiClient` wrapping Dio with `AuthInterceptor` handling Bearer token injection and queued 401 refresh flow via `/api/v1/auth/refresh` |
 | Consumer Role Validation | ✅ IMPLEMENTED | `AuthRepository` and `AuthNotifier` validating authenticated profile via backend `GET /api/v1/auth/me`. Rejects non-CONSUMER roles (`STAFF`, `ADMIN`), revokes session, and presents clear error UI |
 | Router & Auth Guards | ✅ IMPLEMENTED | `GoRouter` setup with `/splash`, `/login`, `/register`, and `StatefulShellRoute` protecting consumer screens |
