@@ -1,25 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
 import 'app/app.dart';
+import 'core/services/fcm_service.dart';
+import 'firebase_options.dart';
 
 /// AVENZO Consumer App — Entry Point
 ///
 /// State management: Riverpod (flutter_riverpod)
 /// Navigation: go_router
-///
-/// NOTE: This is a foundation scaffold.
-/// Full UI implementation begins in Phase 3.
-void main() {
+/// Push Notifications: Firebase Cloud Messaging (FCM) & Local Notifications
+Future<void> main() async {
   // Ensure Flutter bindings are initialized
   WidgetsFlutterBinding.ensureInitialized();
 
-  // TODO (Phase 3): Initialize Firebase
-  // await Firebase.initializeApp();
+  // Initialize Firebase App instance
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
-  // TODO (Phase 3): Initialize FCM
-  // await FirebaseMessaging.instance.requestPermission();
+  // Register top-level FCM background message handler
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  // Wrap app in ProviderScope for Riverpod
+  // Wrap app in ProviderScope for Riverpod state management
   runApp(
     const ProviderScope(
       child: AvenzoApp(),
