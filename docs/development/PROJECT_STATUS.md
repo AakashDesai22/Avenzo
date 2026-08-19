@@ -28,7 +28,8 @@
 | **Phase 5B** | Consumer Pantry Flutter UI | Flutter Mobile | ✅ **COMPLETE** | `PantryItemModel`, `PantryRepository`, Riverpod `pantryNotifierProvider`, interactive Material 3 `PantryScreen`, `AddPantryItemModal`, `PantryItemDetailSheet`, Consume/Discard/Delete actions, 25/25 Flutter tests passing, `flutter analyze` 0 issues |
 | **Phase 5C** | Expiry Local Notifications | Flutter Mobile | ✅ **COMPLETE** | `NotificationService`, `ExpiryNotificationScheduler`, Android notification channel `avenzo_expiry_alerts`, deterministic stable item notification IDs, 7d/3d/0d warning scheduling rules, idempotency & pantry lifecycle sync, 33/33 Flutter tests passing |
 | **Phase 5D** | Barcode & Camera Scanner | Flutter Mobile | ✅ **COMPLETE** | Real camera preview via `mobile_scanner`, barcode normalization, `ProductLookupRepository`, `ScannedProductConfirmationSheet`, pre-filled AddToPantry flow, manual fallback, 40/40 Flutter tests passing |
-| **Phase 5E-5F** | OCR & AI Intelligence | Flutter / AI | ⏳ PLANNED | Receipt OCR Parser (5E), AI Recommendations (5F) |
+| **Phase 5E** | Consumer Receipt OCR Ingestion | Flutter Mobile | ✅ **COMPLETE** | On-device ML Kit text recognition (`google_mlkit_text_recognition`), rule-based `ReceiptLineParser`, noise filtering, `ReceiptProductMatcher`, Material 3 `ReceiptReviewScreen`, batch ingestion into `PantryNotifier` & Expiry notifications, 46/46 Flutter tests passing |
+| **Phase 5F** | AI Usage Recommendations | Flutter / AI | ⏳ PLANNED | Personalized consumption insights & smart pantry recommendations (5F) |
 | **Phase 6** | Notifications & Integrations | FCM / System | ⏳ PLANNED | Push alerts, webhooks, third-party sync |
 | **Phase 7** | System Hardening & Deployment | Infrastructure | ⏳ PLANNED | Security audit, performance tuning, production setup |
 
