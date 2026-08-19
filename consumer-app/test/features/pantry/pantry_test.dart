@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:avenzo_consumer/core/services/expiry_notification_scheduler.dart';
 import 'package:avenzo_consumer/shared/models/pantry_item_model.dart';
 import 'package:avenzo_consumer/features/pantry/data/pantry_repository.dart';
 import 'package:avenzo_consumer/features/pantry/providers/pantry_provider.dart';
@@ -100,6 +101,14 @@ class MockPantryRepository extends PantryRepository {
   }
 }
 
+class MockExpiryScheduler extends ExpiryNotificationScheduler {
+  @override
+  Future<void> syncExpiryNotifications(List<PantryItemModel> items, {DateTime? nowOverride}) async {}
+
+  @override
+  Future<void> cancelItemNotifications(String pantryItemId) async {}
+}
+
 void main() {
   final sampleItem1 = PantryItemModel(
     id: 'p1',
@@ -176,9 +185,11 @@ void main() {
   group('PantryNotifier State Management Tests', () {
     test('PantryNotifier fetches items and updates state to PantryLoaded', () async {
       final mockRepo = MockPantryRepository(mockItems: [sampleItem1, sampleItem2]);
+      final mockScheduler = MockExpiryScheduler();
       final container = ProviderContainer(
         overrides: [
           pantryRepositoryProvider.overrideWithValue(mockRepo),
+          expiryNotificationSchedulerProvider.overrideWithValue(mockScheduler),
         ],
       );
 
@@ -195,9 +206,11 @@ void main() {
 
     test('PantryNotifier handles error gracefully', () async {
       final mockRepo = MockPantryRepository(mockItems: [], shouldFail: true);
+      final mockScheduler = MockExpiryScheduler();
       final container = ProviderContainer(
         overrides: [
           pantryRepositoryProvider.overrideWithValue(mockRepo),
+          expiryNotificationSchedulerProvider.overrideWithValue(mockScheduler),
         ],
       );
 
@@ -210,9 +223,11 @@ void main() {
 
     test('PantryNotifier handles consumeItem mutation', () async {
       final mockRepo = MockPantryRepository(mockItems: [sampleItem1]);
+      final mockScheduler = MockExpiryScheduler();
       final container = ProviderContainer(
         overrides: [
           pantryRepositoryProvider.overrideWithValue(mockRepo),
+          expiryNotificationSchedulerProvider.overrideWithValue(mockScheduler),
         ],
       );
 
@@ -235,9 +250,11 @@ void main() {
 
     test('PantryNotifier handles deleteItem mutation', () async {
       final mockRepo = MockPantryRepository(mockItems: [sampleItem1, sampleItem2]);
+      final mockScheduler = MockExpiryScheduler();
       final container = ProviderContainer(
         overrides: [
           pantryRepositoryProvider.overrideWithValue(mockRepo),
+          expiryNotificationSchedulerProvider.overrideWithValue(mockScheduler),
         ],
       );
 
@@ -256,11 +273,13 @@ void main() {
   group('PantryScreen Widget Tests', () {
     testWidgets('PantryScreen renders loaded items and expiry badges', (WidgetTester tester) async {
       final mockRepo = MockPantryRepository(mockItems: [sampleItem1, sampleItem2]);
+      final mockScheduler = MockExpiryScheduler();
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             pantryRepositoryProvider.overrideWithValue(mockRepo),
+            expiryNotificationSchedulerProvider.overrideWithValue(mockScheduler),
           ],
           child: const MaterialApp(
             home: PantryScreen(),
@@ -279,11 +298,13 @@ void main() {
 
     testWidgets('PantryScreen renders empty state when no items exist', (WidgetTester tester) async {
       final mockRepo = MockPantryRepository(mockItems: []);
+      final mockScheduler = MockExpiryScheduler();
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             pantryRepositoryProvider.overrideWithValue(mockRepo),
+            expiryNotificationSchedulerProvider.overrideWithValue(mockScheduler),
           ],
           child: const MaterialApp(
             home: PantryScreen(),

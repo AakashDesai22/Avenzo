@@ -26,7 +26,8 @@
 | **Phase 4** | Consumer App Foundation | Flutter Mobile | ✅ **COMPLETE** | Riverpod 2.x, GoRouter, Dio 5.x, flutter_secure_storage, Material 3 Consumer theme, Auth, Role validation via /auth/me, Navigation Shell, 17/17 tests passing |
 | **Phase 5A** | Consumer Pantry Backend | FastAPI / DB | ✅ **COMPLETE** | `consumer_pantries`, `pantry_items`, `pantry_item_logs` tables, Alembic migration, pantry CRUD, consume/discard actions, DTE expiry sorting, ownership isolation security, 28/28 tests passing |
 | **Phase 5B** | Consumer Pantry Flutter UI | Flutter Mobile | ✅ **COMPLETE** | `PantryItemModel`, `PantryRepository`, Riverpod `pantryNotifierProvider`, interactive Material 3 `PantryScreen`, `AddPantryItemModal`, `PantryItemDetailSheet`, Consume/Discard/Delete actions, 25/25 Flutter tests passing, `flutter analyze` 0 issues |
-| **Phase 5C-5F** | Expiry & AI Intelligence | Flutter / AI | ⏳ PLANNED | Local Notifications (5C), Barcode & Camera Scanner (5D), OCR (5E), Recommendations (5F) |
+| **Phase 5C** | Expiry Local Notifications | Flutter Mobile | ✅ **COMPLETE** | `NotificationService`, `ExpiryNotificationScheduler`, Android notification channel `avenzo_expiry_alerts`, deterministic stable item notification IDs, 7d/3d/0d warning scheduling rules, idempotency & pantry lifecycle sync, 33/33 Flutter tests passing |
+| **Phase 5D-5F** | Camera Scanner & AI Intel | Flutter / AI | ⏳ PLANNED | Barcode & Camera Scanner (5D), OCR (5E), Recommendations (5F) |
 | **Phase 6** | Notifications & Integrations | FCM / System | ⏳ PLANNED | Push alerts, webhooks, third-party sync |
 | **Phase 7** | System Hardening & Deployment | Infrastructure | ⏳ PLANNED | Security audit, performance tuning, production setup |
 

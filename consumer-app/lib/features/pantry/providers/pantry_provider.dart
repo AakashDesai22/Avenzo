@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/services/expiry_notification_scheduler.dart';
 import '../../../shared/models/pantry_item_model.dart';
 import '../data/pantry_repository.dart';
 
@@ -51,9 +52,16 @@ final pantryRepositoryProvider = Provider<PantryRepository>((ref) {
   return PantryRepository();
 });
 
+final expiryNotificationSchedulerProvider = Provider<ExpiryNotificationScheduler>((ref) {
+  return ExpiryNotificationScheduler();
+});
+
 final pantryNotifierProvider =
     StateNotifierProvider<PantryNotifier, PantryState>((ref) {
-  return PantryNotifier(repository: ref.watch(pantryRepositoryProvider));
+  return PantryNotifier(
+    repository: ref.watch(pantryRepositoryProvider),
+    scheduler: ref.watch(expiryNotificationSchedulerProvider),
+  );
 });
 
 final expiringPantryItemsProvider =
@@ -64,10 +72,20 @@ final expiringPantryItemsProvider =
 
 class PantryNotifier extends StateNotifier<PantryState> {
   final PantryRepository _repository;
+  final ExpiryNotificationScheduler? _scheduler;
 
-  PantryNotifier({required PantryRepository repository})
-      : _repository = repository,
+  PantryNotifier({
+    required PantryRepository repository,
+    ExpiryNotificationScheduler? scheduler,
+  })  : _repository = repository,
+        _scheduler = scheduler,
         super(PantryInitial());
+
+  Future<void> _syncNotifications(List<PantryItemModel> items) async {
+    if (_scheduler != null) {
+      await _scheduler.syncExpiryNotifications(items);
+    }
+  }
 
   Future<void> fetchPantryItems({String? storageLocation}) async {
     state = PantryLoading();
@@ -75,6 +93,7 @@ class PantryNotifier extends StateNotifier<PantryState> {
       final filter = (storageLocation == 'all') ? null : storageLocation;
       final items = await _repository.getPantryItems(storageLocation: filter);
       state = PantryLoaded(items: items, activeFilter: filter);
+      await _syncNotifications(items);
     } catch (e) {
       final msg = e is ApiException ? e.message : 'Failed to load pantry items.';
       state = PantryError(msg);
@@ -113,10 +132,12 @@ class PantryNotifier extends StateNotifier<PantryState> {
 
       if (state is PantryLoaded) {
         final current = (state as PantryLoaded);
+        final newItems = [newItem, ...current.items];
         state = PantryLoaded(
-          items: [newItem, ...current.items],
+          items: newItems,
           activeFilter: current.activeFilter,
         );
+        await _syncNotifications(newItems);
       } else {
         await fetchPantryItems();
       }
@@ -155,6 +176,7 @@ class PantryNotifier extends StateNotifier<PantryState> {
           items: newItems,
           activeFilter: current.activeFilter,
         );
+        await _syncNotifications(newItems);
       } else {
         await fetchPantryItems();
       }
@@ -172,8 +194,12 @@ class PantryNotifier extends StateNotifier<PantryState> {
         List<PantryItemModel> newItems;
         if (updated.status == 'consumed' || updated.quantity <= 0) {
           newItems = current.items.where((i) => i.id != id).toList();
+          if (_scheduler != null) {
+            await _scheduler.cancelItemNotifications(id);
+          }
         } else {
           newItems = current.items.map((i) => i.id == id ? updated : i).toList();
+          await _syncNotifications(newItems);
         }
         state = PantryLoaded(
           items: newItems,
@@ -196,8 +222,12 @@ class PantryNotifier extends StateNotifier<PantryState> {
         List<PantryItemModel> newItems;
         if (updated.status == 'discarded' || updated.quantity <= 0) {
           newItems = current.items.where((i) => i.id != id).toList();
+          if (_scheduler != null) {
+            await _scheduler.cancelItemNotifications(id);
+          }
         } else {
           newItems = current.items.map((i) => i.id == id ? updated : i).toList();
+          await _syncNotifications(newItems);
         }
         state = PantryLoaded(
           items: newItems,
@@ -215,6 +245,9 @@ class PantryNotifier extends StateNotifier<PantryState> {
   Future<bool> deleteItem(String id) async {
     try {
       await _repository.deletePantryItem(id);
+      if (_scheduler != null) {
+        await _scheduler.cancelItemNotifications(id);
+      }
       if (state is PantryLoaded) {
         final current = (state as PantryLoaded);
         final newItems = current.items.where((i) => i.id != id).toList();

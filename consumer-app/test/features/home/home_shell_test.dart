@@ -8,6 +8,7 @@ import 'package:avenzo_consumer/shared/models/user_model.dart';
 
 import 'package:avenzo_consumer/features/pantry/data/pantry_repository.dart';
 import 'package:avenzo_consumer/features/pantry/providers/pantry_provider.dart';
+import 'package:avenzo_consumer/core/services/expiry_notification_scheduler.dart';
 import 'package:avenzo_consumer/shared/models/pantry_item_model.dart';
 
 class MockAuthRepoForHomeShell extends AuthRepository {
@@ -31,6 +32,11 @@ class MockPantryRepoForHomeShell extends PantryRepository {
   }
 }
 
+class MockExpirySchedulerForHomeShell extends ExpiryNotificationScheduler {
+  @override
+  Future<void> syncExpiryNotifications(List<PantryItemModel> items, {DateTime? nowOverride}) async {}
+}
+
 void main() {
   final consumerUser = UserModel(
     id: 'u1',
@@ -48,12 +54,14 @@ void main() {
   testWidgets('BottomNavShell renders 5 navigation items and switches tabs', (WidgetTester tester) async {
     final mockRepo = MockAuthRepoForHomeShell(consumerUser);
     final mockPantryRepo = MockPantryRepoForHomeShell();
+    final mockScheduler = MockExpirySchedulerForHomeShell();
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           authRepositoryProvider.overrideWithValue(mockRepo),
           pantryRepositoryProvider.overrideWithValue(mockPantryRepo),
+          expiryNotificationSchedulerProvider.overrideWithValue(mockScheduler),
         ],
         child: Consumer(
           builder: (context, ref, child) {
