@@ -18,8 +18,11 @@ from app.core.security import create_access_token, hash_password
 from app.models.user import User, Role
 from app.services.auth_service import ensure_roles_seeded
 
-# Test database engine using NullPool to prevent connection reuse conflicts in async tests
-test_engine = create_async_engine(settings.DATABASE_URL, echo=False, poolclass=NullPool)
+import os
+
+# Test database engine: uses DATABASE_URL if available, otherwise falls back to sqlite+aiosqlite
+TEST_DB_URL = os.getenv("TEST_DATABASE_URL", "sqlite+aiosqlite:///./test_avenzo.db")
+test_engine = create_async_engine(TEST_DB_URL, echo=False, poolclass=NullPool)
 TestingSessionLocal = async_sessionmaker(
     bind=test_engine, class_=AsyncSession, expire_on_commit=False, autoflush=False
 )

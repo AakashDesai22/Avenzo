@@ -11,6 +11,7 @@ from app.models.warehouse import Warehouse, WarehouseLocation
 from app.models.supplier import Supplier
 from app.models.inventory import Batch, Inventory, InventoryTransaction
 from app.models.pantry import ConsumerPantry, PantryItem, PantryItemLog
+from app.models.recommendation import ConsumerRecommendation
 
 __all__ = [
     "Base",
@@ -33,4 +34,5 @@ __all__ = [
     "ConsumerPantry",
     "PantryItem",
     "PantryItemLog",
+    "ConsumerRecommendation",
 ]

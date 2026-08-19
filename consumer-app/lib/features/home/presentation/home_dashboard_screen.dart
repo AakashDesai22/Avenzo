@@ -82,6 +82,38 @@ class HomeDashboardScreen extends ConsumerWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+
+            // Smart Insights Quick Banner
+            Card(
+              elevation: 1,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.indigo.shade200),
+              ),
+              color: Colors.indigo.shade50,
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: Colors.indigo,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+                ),
+                title: const Text(
+                  'Smart Insights & Recommendations',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                subtitle: const Text(
+                  'View personalized waste-reduction & expiry alerts',
+                  style: TextStyle(fontSize: 12),
+                ),
+                trailing: const Icon(Icons.chevron_right, color: Colors.indigo),
+                onTap: () => context.push('/recommendations'),
+              ),
+            ),
             const SizedBox(height: 24),
 
             // Primary Quick Actions Header

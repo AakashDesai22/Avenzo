@@ -23,6 +23,7 @@ from app.api.v1 import (
     fefo,
     expiry,
     pantry,
+    recommendations,
 )
 
 # Configure logging
@@ -87,6 +88,7 @@ def create_app() -> FastAPI:
     app.include_router(inventory.router, prefix="/api/v1")
     app.include_router(fefo.router, prefix="/api/v1")
     app.include_router(pantry.router, prefix="/api/v1")
+    app.include_router(recommendations.router, prefix="/api/v1")
 
     return app
 
