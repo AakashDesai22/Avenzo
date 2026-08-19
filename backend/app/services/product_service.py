@@ -89,9 +89,10 @@ async def list_products(
     limit: int = 20,
     category_id: Optional[UUID] = None,
     search: Optional[str] = None,
+    barcode: Optional[str] = None,
     is_active: Optional[bool] = None,
 ) -> Tuple[List[Product], int]:
-    """List products with pagination, category filter, and text search."""
+    """List products with pagination, category filter, barcode filter, and text search."""
     stmt = select(Product).options(joinedload(Product.category), joinedload(Product.brand)).where(Product.is_deleted == False)
 
     if category_id:
@@ -99,6 +100,9 @@ async def list_products(
 
     if is_active is not None:
         stmt = stmt.where(Product.is_active == is_active)
+
+    if barcode:
+        stmt = stmt.where(Product.barcode == barcode)
 
     if search:
         search_filter = f"%{search}%"

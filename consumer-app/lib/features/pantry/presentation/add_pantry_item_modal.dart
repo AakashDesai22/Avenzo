@@ -6,16 +6,42 @@ import '../../../shared/widgets/avenzo_button.dart';
 import '../../../shared/widgets/avenzo_text_field.dart';
 import '../providers/pantry_provider.dart';
 
-/// Modal bottom sheet for adding a new item manually to Digital Pantry
+/// Modal bottom sheet for adding a new item manually or pre-filled to Digital Pantry
 class AddPantryItemModal extends ConsumerStatefulWidget {
-  const AddPantryItemModal({super.key});
+  final String? initialName;
+  final String? initialBarcode;
+  final String? initialUnit;
+  final String? initialProductId;
+  final DateTime? initialExpiryDate;
 
-  static Future<void> show(BuildContext context) {
+  const AddPantryItemModal({
+    super.key,
+    this.initialName,
+    this.initialBarcode,
+    this.initialUnit,
+    this.initialProductId,
+    this.initialExpiryDate,
+  });
+
+  static Future<void> show(
+    BuildContext context, {
+    String? initialName,
+    String? initialBarcode,
+    String? initialUnit,
+    String? initialProductId,
+    DateTime? initialExpiryDate,
+  }) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const AddPantryItemModal(),
+      builder: (context) => AddPantryItemModal(
+        initialName: initialName,
+        initialBarcode: initialBarcode,
+        initialUnit: initialUnit,
+        initialProductId: initialProductId,
+        initialExpiryDate: initialExpiryDate,
+      ),
     );
   }
 
@@ -25,16 +51,28 @@ class AddPantryItemModal extends ConsumerStatefulWidget {
 
 class _AddPantryItemModalState extends ConsumerState<AddPantryItemModal> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _quantityController = TextEditingController(text: '1.0');
-  final _unitController = TextEditingController(text: 'units');
-  final _barcodeController = TextEditingController();
+  late final TextEditingController _nameController;
+  late final TextEditingController _quantityController;
+  late final TextEditingController _unitController;
+  late final TextEditingController _barcodeController;
   final _notesController = TextEditingController();
 
   String _storageLocation = 'pantry'; // pantry, fridge, freezer
   DateTime? _purchaseDate;
   DateTime? _expiryDate;
+  String? _productId;
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialName ?? '');
+    _quantityController = TextEditingController(text: '1.0');
+    _unitController = TextEditingController(text: widget.initialUnit ?? 'units');
+    _barcodeController = TextEditingController(text: widget.initialBarcode ?? '');
+    _productId = widget.initialProductId;
+    _expiryDate = widget.initialExpiryDate;
+  }
 
   @override
   void dispose() {
@@ -80,6 +118,7 @@ class _AddPantryItemModalState extends ConsumerState<AddPantryItemModal> {
     setState(() => _isSubmitting = true);
 
     final success = await ref.read(pantryNotifierProvider.notifier).addItem(
+          productId: _productId,
           customName: _nameController.text.trim(),
           barcode: _barcodeController.text.trim().isNotEmpty ? _barcodeController.text.trim() : null,
           quantity: qty,

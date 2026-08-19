@@ -11,7 +11,7 @@ import '../features/home/presentation/bottom_nav_shell.dart';
 import '../features/home/presentation/home_dashboard_screen.dart';
 import '../features/pantry/presentation/pantry_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
-import '../features/scanner/presentation/scanner_screen_shell.dart';
+import '../features/scanner/presentation/scanner_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
@@ -87,7 +87,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/home/scan',
-                builder: (context, state) => const ScannerScreenShell(),
+                builder: (context, state) => const ScannerScreen(),
               ),
             ],
           ),

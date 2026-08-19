@@ -23,15 +23,16 @@ async def list_products(
     per_page: int = Query(default=20, ge=1, le=100),
     category_id: Optional[UUID] = None,
     search: Optional[str] = None,
+    barcode: Optional[str] = None,
     is_active: Optional[bool] = None,
     session: AsyncSession = Depends(get_db),
 ):
     """
-    List products with pagination, category filter, and text search.
+    List products with pagination, category filter, barcode filter, and text search.
     """
     skip = (page - 1) * per_page
     products, total = await product_service.list_products(
-        session, skip=skip, limit=per_page, category_id=category_id, search=search, is_active=is_active
+        session, skip=skip, limit=per_page, category_id=category_id, search=search, barcode=barcode, is_active=is_active
     )
     total_pages = (total + per_page - 1) // per_page if per_page else 1
 
