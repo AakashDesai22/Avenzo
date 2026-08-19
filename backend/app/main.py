@@ -24,6 +24,7 @@ from app.api.v1 import (
     expiry,
     pantry,
     recommendations,
+    notifications,
 )
 
 # Configure logging
@@ -89,6 +90,7 @@ def create_app() -> FastAPI:
     app.include_router(fefo.router, prefix="/api/v1")
     app.include_router(pantry.router, prefix="/api/v1")
     app.include_router(recommendations.router, prefix="/api/v1")
+    app.include_router(notifications.router, prefix="/api/v1")
 
     return app
 

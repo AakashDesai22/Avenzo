@@ -10,6 +10,8 @@ import '../features/expiry/presentation/expiry_screen_shell.dart';
 import '../features/home/presentation/bottom_nav_shell.dart';
 import '../features/home/presentation/home_dashboard_screen.dart';
 import '../features/pantry/presentation/pantry_screen.dart';
+import '../features/notifications/presentation/notifications_screen.dart';
+import '../features/notifications/presentation/notification_preferences_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/recommendations/presentation/recommendations_screen.dart';
 import '../features/scanner/presentation/scanner_screen.dart';
@@ -66,6 +68,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/recommendations',
         builder: (context, state) => const RecommendationsScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (context, state) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/notifications/preferences',
+        builder: (context, state) => const NotificationPreferencesScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

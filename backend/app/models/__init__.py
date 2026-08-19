@@ -12,6 +12,7 @@ from app.models.supplier import Supplier
 from app.models.inventory import Batch, Inventory, InventoryTransaction
 from app.models.pantry import ConsumerPantry, PantryItem, PantryItemLog
 from app.models.recommendation import ConsumerRecommendation
+from app.models.notification import NotificationPreference, ConsumerDevice, NotificationRecord
 
 __all__ = [
     "Base",
@@ -35,4 +36,7 @@ __all__ = [
     "PantryItem",
     "PantryItemLog",
     "ConsumerRecommendation",
+    "NotificationPreference",
+    "ConsumerDevice",
+    "NotificationRecord",
 ]
