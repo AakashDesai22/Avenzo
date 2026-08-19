@@ -23,8 +23,9 @@
 | **Phase 1** | Core Backend & Database Foundation | Backend / DB | ✅ **COMPLETE** | PostgreSQL, Alembic, Auth, Products, Warehouses, Batches, Inventory, 17/17 tests passing |
 | **Phase 2** | Inventory Intelligence & FEFO | Backend / FEFO | ✅ **COMPLETE** | FEFO 5-level ranking, non-mutating allocation preview, FEFO violation audit logs, Expiry & Risk metrics, 23/23 tests passing |
 | **Phase 3** | Business Web Foundation | React / Web | ✅ **COMPLETE** | Vite, React 19, TypeScript, React Router, TanStack Query, AuthContext, Dashboard, Product, Category, Inventory, Batches, FEFO Preview & Risk Screens |
-| **Phase 4** | Consumer App Foundation | Flutter Mobile | ✅ **COMPLETE** | Riverpod 2.x, GoRouter, Dio 5.x, flutter_secure_storage, Material 3 Consumer theme, Auth, Role validation via /auth/me, Navigation Shell, 11/11 tests passing |
-| **Phase 5** | AI Services Integration | AI Service | ⏳ PLANNED | Demand forecasting, waste prediction, OCR |
+| **Phase 4** | Consumer App Foundation | Flutter Mobile | ✅ **COMPLETE** | Riverpod 2.x, GoRouter, Dio 5.x, flutter_secure_storage, Material 3 Consumer theme, Auth, Role validation via /auth/me, Navigation Shell, 17/17 tests passing |
+| **Phase 5A** | Consumer Pantry Backend | FastAPI / DB | ✅ **COMPLETE** | `consumer_pantries`, `pantry_items`, `pantry_item_logs` tables, Alembic migration, pantry CRUD, consume/discard actions, DTE expiry sorting, ownership isolation security, 28/28 tests passing |
+| **Phase 5B-5F** | Consumer App & AI Intel | Flutter / AI | ⏳ PLANNED | Consumer Flutter Pantry UI (5B), Expiry Notifications (5C), Barcode & Camera Scanner (5D), OCR (5E), Recommendations (5F) |
 | **Phase 6** | Notifications & Integrations | FCM / System | ⏳ PLANNED | Push alerts, webhooks, third-party sync |
 | **Phase 7** | System Hardening & Deployment | Infrastructure | ⏳ PLANNED | Security audit, performance tuning, production setup |
 

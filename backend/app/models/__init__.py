@@ -10,6 +10,7 @@ from app.models.product import Category, Brand, Product
 from app.models.warehouse import Warehouse, WarehouseLocation
 from app.models.supplier import Supplier
 from app.models.inventory import Batch, Inventory, InventoryTransaction
+from app.models.pantry import ConsumerPantry, PantryItem, PantryItemLog
 
 __all__ = [
     "Base",
@@ -29,4 +30,7 @@ __all__ = [
     "Batch",
     "Inventory",
     "InventoryTransaction",
+    "ConsumerPantry",
+    "PantryItem",
+    "PantryItemLog",
 ]
