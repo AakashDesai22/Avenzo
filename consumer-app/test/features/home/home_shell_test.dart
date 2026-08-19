@@ -6,6 +6,10 @@ import 'package:avenzo_consumer/features/auth/providers/auth_provider.dart';
 import 'package:avenzo_consumer/features/auth/data/auth_repository.dart';
 import 'package:avenzo_consumer/shared/models/user_model.dart';
 
+import 'package:avenzo_consumer/features/pantry/data/pantry_repository.dart';
+import 'package:avenzo_consumer/features/pantry/providers/pantry_provider.dart';
+import 'package:avenzo_consumer/shared/models/pantry_item_model.dart';
+
 class MockAuthRepoForHomeShell extends AuthRepository {
   final UserModel user;
   MockAuthRepoForHomeShell(this.user);
@@ -18,6 +22,13 @@ class MockAuthRepoForHomeShell extends AuthRepository {
 
   @override
   Future<void> logout() async {}
+}
+
+class MockPantryRepoForHomeShell extends PantryRepository {
+  @override
+  Future<List<PantryItemModel>> getPantryItems({String? storageLocation, String status = 'active'}) async {
+    return [];
+  }
 }
 
 void main() {
@@ -36,11 +47,13 @@ void main() {
 
   testWidgets('BottomNavShell renders 5 navigation items and switches tabs', (WidgetTester tester) async {
     final mockRepo = MockAuthRepoForHomeShell(consumerUser);
+    final mockPantryRepo = MockPantryRepoForHomeShell();
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           authRepositoryProvider.overrideWithValue(mockRepo),
+          pantryRepositoryProvider.overrideWithValue(mockPantryRepo),
         ],
         child: Consumer(
           builder: (context, ref, child) {
@@ -66,7 +79,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.kitchen_outlined));
     await tester.pumpAndSettle();
 
-    expect(find.text('Your Digital Pantry'), findsOneWidget);
+    expect(find.text('My Digital Pantry'), findsOneWidget);
 
     // Tap on Expiring tab
     await tester.tap(find.byIcon(Icons.timer_outlined));

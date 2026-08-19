@@ -9,7 +9,7 @@ import '../features/auth/providers/auth_provider.dart';
 import '../features/expiry/presentation/expiry_screen_shell.dart';
 import '../features/home/presentation/bottom_nav_shell.dart';
 import '../features/home/presentation/home_dashboard_screen.dart';
-import '../features/pantry/presentation/pantry_screen_shell.dart';
+import '../features/pantry/presentation/pantry_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/scanner/presentation/scanner_screen_shell.dart';
 
@@ -79,7 +79,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/home/pantry',
-                builder: (context, state) => const PantryScreenShell(),
+                builder: (context, state) => const PantryScreen(),
               ),
             ],
           ),
