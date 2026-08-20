@@ -4,14 +4,23 @@ AVENZO Backend — Notifications & System Integrations Tests
 
 import pytest
 import uuid
+from unittest.mock import MagicMock, patch
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
+from firebase_admin import messaging, exceptions as fb_exceptions
 
 from app.models.notification import NotificationPreference, ConsumerDevice, NotificationRecord
 from app.services.notification_service import (
     get_or_create_user_preferences,
     create_notification_record,
     register_consumer_device,
+    initialize_firebase_admin,
+    FirebaseFCMProvider,
+    MockFCMProvider,
+    FCMProvider,
+    TokenUnregisteredError,
+    set_fcm_provider,
+    get_fcm_provider,
 )
 from app.core.security import create_access_token
 from tests.conftest import _create_test_user_with_role
@@ -112,3 +121,95 @@ async def test_notification_records_and_read_status_flow(client: AsyncClient, db
     # 5. Unread count is now 0
     uc1_after = await client.get("/api/v1/notifications/unread-count", headers=h1)
     assert uc1_after.json()["unread_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_firebase_admin_initialization_missing_credentials(monkeypatch):
+    """Verifies missing GOOGLE_APPLICATION_CREDENTIALS safely returns None."""
+    monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
+    with patch("firebase_admin._apps", {}):
+        app = initialize_firebase_admin()
+        assert app is None
+
+
+@pytest.mark.asyncio
+async def test_firebase_admin_initialization_invalid_path(monkeypatch):
+    """Verifies invalid file path safely returns None."""
+    monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", "/path/does/not/exist/secrets.json")
+    with patch("firebase_admin._apps", {}):
+        app = initialize_firebase_admin()
+        assert app is None
+
+
+@pytest.mark.asyncio
+async def test_firebase_fcm_provider_dispatch_success():
+    """Verifies successful dispatch using mocked firebase_admin.messaging."""
+    mock_app = MagicMock()
+    provider = FirebaseFCMProvider(app=mock_app)
+
+    with patch("firebase_admin.messaging.send", return_value="projects/test/messages/msg_123"):
+        result = await provider.send_push_notification(
+            "valid_fcm_token_123", "Title", "Body", {"key": "value"}
+        )
+        assert result is True
+
+
+@pytest.mark.asyncio
+async def test_firebase_fcm_provider_invalid_token_handling():
+    """Verifies UnregisteredError raises TokenUnregisteredError."""
+    mock_app = MagicMock()
+    provider = FirebaseFCMProvider(app=mock_app)
+
+    with patch(
+        "firebase_admin.messaging.send",
+        side_effect=messaging.UnregisteredError("Requested entity was not found."),
+    ):
+        with pytest.raises(TokenUnregisteredError):
+            await provider.send_push_notification("invalid_fcm_token_999", "Title", "Body")
+
+
+@pytest.mark.asyncio
+async def test_multi_device_dispatch_with_partial_failure(db_session: AsyncSession):
+    """Verifies deactivation of invalid device token while successfully delivering to valid device."""
+    u = await _create_test_user_with_role(
+        db_session, f"md_{uuid.uuid4().hex[:6]}@example.com", "CONSUMER"
+    )
+
+    # Device 1: Valid
+    d1 = await register_consumer_device(
+        db_session, u.id, "device-1", "android", "fcm_token_valid"
+    )
+    # Device 2: Invalid
+    d2 = await register_consumer_device(
+        db_session, u.id, "device-2", "android", "fcm_token_invalid"
+    )
+
+    class MockPartialFailureProvider(FCMProvider):
+        async def send_push_notification(
+            self, fcm_token: str, title: str, body: str, data=None
+        ) -> bool:
+            if fcm_token == "fcm_token_invalid":
+                raise TokenUnregisteredError(fcm_token)
+            return True
+
+    original_provider = get_fcm_provider()
+    try:
+        set_fcm_provider(MockPartialFailureProvider())
+        record = await create_notification_record(
+            db_session,
+            user_id=u.id,
+            notification_type="EXPIRY_TODAY",
+            title="Partial Failure Test",
+            body="Testing partial token failure",
+        )
+        assert record.status == "DELIVERED"
+
+        # Refresh d2 to verify is_active became False
+        await db_session.refresh(d2)
+        assert d2.is_active is False
+
+        # d1 should remain active
+        await db_session.refresh(d1)
+        assert d1.is_active is True
+    finally:
+        set_fcm_provider(original_provider)

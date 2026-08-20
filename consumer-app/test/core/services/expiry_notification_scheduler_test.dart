@@ -38,7 +38,6 @@ class MockNotificationService extends NotificationService {
     required DateTime scheduledDate,
     String? payload,
   }) async {
-    if (scheduledDate.isBefore(DateTime.now())) return;
     scheduledList.add(ScheduledCall(
       id: id,
       title: title,

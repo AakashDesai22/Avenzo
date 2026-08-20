@@ -3,11 +3,15 @@ AVENZO Backend — Notification Service & System Integration Engine
 Service layer managing user preferences, registered devices, server notification events, and FCM dispatch abstraction.
 """
 
+import os
 import uuid
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
+
+import firebase_admin
+from firebase_admin import credentials, messaging, exceptions
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -17,6 +21,14 @@ from app.models.notification import NotificationPreference, ConsumerDevice, Noti
 from app.models.base import utc_now
 
 logger = logging.getLogger(__name__)
+
+
+class TokenUnregisteredError(Exception):
+    """Raised when FCM reports a token as unregistered or invalid."""
+
+    def __init__(self, token: str):
+        self.token = token
+        super().__init__("FCM registration token is invalid or unregistered.")
 
 
 class FCMProvider(ABC):
@@ -35,14 +47,114 @@ class MockFCMProvider(FCMProvider):
     async def send_push_notification(
         self, fcm_token: str, title: str, body: str, data: Optional[Dict[str, Any]] = None
     ) -> bool:
+        masked_token = f"{fcm_token[:10]}..." if len(fcm_token) > 10 else fcm_token
         logger.info(
-            f"[FCM Push Dispatch] Token: {fcm_token[:10]}... | Title: {title} | Body: {body} | Data: {data}"
+            f"[MockFCM Push Dispatch] Token: {masked_token} | Title: {title} | Body: {body} | Data: {data}"
         )
         return True
 
 
+def initialize_firebase_admin() -> Optional[firebase_admin.App]:
+    """Initializes Firebase Admin SDK using GOOGLE_APPLICATION_CREDENTIALS if available."""
+    if firebase_admin._apps:
+        return firebase_admin.get_app()
+
+    cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if not cred_path:
+        logger.warning(
+            "[Firebase Admin] GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. "
+            "Firebase FCM push notifications will fall back to MockFCMProvider."
+        )
+        return None
+
+    if not os.path.exists(cred_path):
+        logger.error(
+            f"[Firebase Admin] Service account credentials file not found at path: {cred_path}. "
+            "Firebase FCM push notifications will fall back to MockFCMProvider."
+        )
+        return None
+
+    try:
+        cred = credentials.Certificate(cred_path)
+        app = firebase_admin.initialize_app(cred)
+        logger.info("[Firebase Admin] Firebase Admin SDK successfully initialized.")
+        return app
+    except Exception as e:
+        logger.error(
+            f"[Firebase Admin Error] Failed to initialize Firebase Admin SDK: {type(e).__name__}: {e}"
+        )
+        return None
+
+
+class FirebaseFCMProvider(FCMProvider):
+    """Production FCM Provider delivering push messages via Firebase Admin SDK."""
+
+    def __init__(self, app: Optional[firebase_admin.App] = None):
+        self.app = app or initialize_firebase_admin()
+
+    async def send_push_notification(
+        self, fcm_token: str, title: str, body: str, data: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        if not self.app:
+            logger.warning("[FirebaseFCMProvider] Firebase Admin App not initialized. Skipping push.")
+            return False
+
+        masked_token = f"{fcm_token[:10]}..." if len(fcm_token) > 10 else fcm_token
+        try:
+            msg_data = {k: str(v) for k, v in (data or {}).items()}
+            message = messaging.Message(
+                notification=messaging.Notification(
+                    title=title,
+                    body=body,
+                ),
+                data=msg_data,
+                token=fcm_token,
+            )
+            response = messaging.send(message, app=self.app)
+            logger.info(f"[FCM Push Success] Token: {masked_token} | MessageId: {response}")
+            return True
+        except messaging.UnregisteredError:
+            logger.warning(f"[FCM Invalid Token] Token unregistered or invalid: {masked_token}")
+            raise TokenUnregisteredError(fcm_token)
+        except messaging.SenderIdMismatchError:
+            logger.warning(f"[FCM Invalid Token] Sender ID mismatch for token: {masked_token}")
+            raise TokenUnregisteredError(fcm_token)
+        except exceptions.InvalidArgumentError:
+            logger.warning(f"[FCM Invalid Token] Invalid argument for token: {masked_token}")
+            raise TokenUnregisteredError(fcm_token)
+        except exceptions.NotFoundError:
+            logger.warning(f"[FCM Invalid Token] Entity not found for token: {masked_token}")
+            raise TokenUnregisteredError(fcm_token)
+        except exceptions.FirebaseError as e:
+            err_str = str(e).lower()
+            if "unregistered" in err_str or "invalid" in err_str or "not-found" in err_str:
+                logger.warning(f"[FCM Invalid Token] FirebaseError indicates invalid token: {masked_token}")
+                raise TokenUnregisteredError(fcm_token)
+            logger.error(f"[FCM FirebaseError] Token: {masked_token} | Error: {type(e).__name__}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"[FCM Unexpected Error] Token: {masked_token} | Error: {e}")
+            return False
+
+
+def select_default_fcm_provider() -> FCMProvider:
+    """Auto-selects FirebaseFCMProvider if credentials exist, else returns MockFCMProvider."""
+    cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if cred_path and os.path.exists(cred_path):
+        app = initialize_firebase_admin()
+        if app:
+            return FirebaseFCMProvider(app)
+    return MockFCMProvider()
+
+
 # Default provider instance
 _fcm_provider: FCMProvider = MockFCMProvider()
+
+
+def get_fcm_provider() -> FCMProvider:
+    """Returns active FCMProvider instance."""
+    global _fcm_provider
+    return _fcm_provider
 
 
 def set_fcm_provider(provider: FCMProvider) -> None:
@@ -210,12 +322,24 @@ async def create_notification_record(
     if devices:
         record.status = "SENT"
         record.sent_at = utc_now()
+        any_success = False
         for dev in devices:
             if dev.fcm_token:
-                await _fcm_provider.send_push_notification(
-                    dev.fcm_token, title, body, {"notification_id": str(record.id)}
-                )
-        record.status = "DELIVERED"
+                try:
+                    success = await _fcm_provider.send_push_notification(
+                        dev.fcm_token, title, body, {"notification_id": str(record.id)}
+                    )
+                    if success:
+                        any_success = True
+                except TokenUnregisteredError:
+                    masked = f"{dev.fcm_token[:10]}..." if len(dev.fcm_token) > 10 else dev.fcm_token
+                    logger.warning(
+                        f"Deactivating invalid device token (device_id: {dev.device_id}, token: {masked})"
+                    )
+                    dev.is_active = False
+
+        if any_success:
+            record.status = "DELIVERED"
         await session.commit()
 
     return record
