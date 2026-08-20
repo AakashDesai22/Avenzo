@@ -12,12 +12,17 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase
 from app.core.config import settings
 
-# Create async engine with PostgreSQL asyncpg driver
+# Configure engine kwargs based on database dialect
+engine_kwargs = {"echo": False, "future": True}
+if settings.DATABASE_URL.startswith("sqlite"):
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+else:
+    engine_kwargs["pool_pre_ping"] = True
+
+# Create async engine
 async_engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=False,
-    future=True,
-    pool_pre_ping=True,
+    **engine_kwargs,
 )
 
 # Async session factory

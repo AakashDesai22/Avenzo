@@ -27,6 +27,8 @@ from app.api.v1 import (
     notifications,
 )
 
+from app.core.database import async_engine, Base
+
 # Configure logging
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -45,6 +47,13 @@ async def lifespan(app: FastAPI):
         f"Starting AVENZO Backend v{settings.APP_VERSION} "
         f"in {settings.APP_ENV} mode"
     )
+    try:
+        async with async_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database schema initialized successfully.")
+    except Exception as e:
+        logger.error(f"Database schema initialization warning: {e}")
+
     yield
     logger.info("AVENZO Backend shutting down")
 
