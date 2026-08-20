@@ -15,6 +15,7 @@ from app.services.notification_service import (
     create_notification_record,
     register_consumer_device,
     initialize_firebase_admin,
+    select_default_fcm_provider,
     FirebaseFCMProvider,
     MockFCMProvider,
     FCMProvider,
@@ -139,6 +140,16 @@ async def test_firebase_admin_initialization_invalid_path(monkeypatch):
     with patch("firebase_admin._apps", {}):
         app = initialize_firebase_admin()
         assert app is None
+
+
+@pytest.mark.asyncio
+async def test_select_default_fcm_provider_production_strict_error(monkeypatch):
+    """Verifies missing credentials in production raises explicit RuntimeError."""
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
+    with pytest.raises(RuntimeError, match="GOOGLE_APPLICATION_CREDENTIALS"):
+        select_default_fcm_provider()
+
 
 
 @pytest.mark.asyncio

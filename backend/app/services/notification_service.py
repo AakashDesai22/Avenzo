@@ -138,17 +138,42 @@ class FirebaseFCMProvider(FCMProvider):
 
 
 def select_default_fcm_provider() -> FCMProvider:
-    """Auto-selects FirebaseFCMProvider if credentials exist, else returns MockFCMProvider."""
+    """Selects FCM provider implementation based on environment and credential availability."""
+    app_env = os.getenv("APP_ENV", "development").lower()
     cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    if cred_path and os.path.exists(cred_path):
+
+    if cred_path:
+        if not os.path.exists(cred_path):
+            if app_env == "production":
+                raise RuntimeError(
+                    f"[FCM Configuration Error] GOOGLE_APPLICATION_CREDENTIALS file not found at path: {cred_path}"
+                )
+            logger.warning(
+                f"[FCM Configuration Warning] Specified GOOGLE_APPLICATION_CREDENTIALS file not found: {cred_path}. Falling back to MockFCMProvider."
+            )
+            return MockFCMProvider()
+
         app = initialize_firebase_admin()
         if app:
+            logger.info("[FCM Provider] Initialized production FirebaseFCMProvider successfully.")
             return FirebaseFCMProvider(app)
+        elif app_env == "production":
+            raise RuntimeError(
+                "[FCM Configuration Error] Failed to initialize Firebase Admin SDK in production environment."
+            )
+
+    if app_env == "production":
+        raise RuntimeError(
+            "[FCM Configuration Error] GOOGLE_APPLICATION_CREDENTIALS environment variable must be set in production."
+        )
+
+    logger.info("[FCM Provider] Using MockFCMProvider for development/test environment.")
     return MockFCMProvider()
 
 
 # Default provider instance
-_fcm_provider: FCMProvider = MockFCMProvider()
+_fcm_provider: FCMProvider = select_default_fcm_provider()
+
 
 
 def get_fcm_provider() -> FCMProvider:
