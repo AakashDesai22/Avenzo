@@ -1,11 +1,11 @@
 """
 AVENZO Backend — Application Configuration
 Loads all environment variables using Pydantic Settings.
-All configuration must come from environment variables.
-No hardcoded values allowed.
+Enforces production security rules when APP_ENV == "production".
 """
 
 from pydantic_settings import BaseSettings
+from pydantic import model_validator
 from typing import List
 
 
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
 
     @property
     def ALLOWED_ORIGINS(self) -> List[str]:
-        return [origin.strip() for origin in self.ALLOWED_ORIGINS_STR.split(",")]
+        return [origin.strip() for origin in self.ALLOWED_ORIGINS_STR.split(",") if origin.strip()]
 
     # Inventory & Expiry Threshold Defaults (Centralized App-Level Config)
     EXPIRING_SOON_THRESHOLD_DAYS: int = 30
@@ -60,6 +60,18 @@ class Settings(BaseSettings):
 
     # Logging
     LOG_LEVEL: str = "INFO"
+
+    @model_validator(mode="after")
+    def validate_production_settings(self) -> "Settings":
+        """Enforces strict security constraints when running in production."""
+        if self.APP_ENV.lower() == "production":
+            if self.APP_DEBUG:
+                raise ValueError("APP_DEBUG must be set to False in production mode.")
+            if "CHANGE_THIS_SECRET" in self.JWT_SECRET or len(self.JWT_SECRET) < 32:
+                raise ValueError(
+                    "JWT_SECRET must be configured with a strong secret (at least 32 characters) in production."
+                )
+        return self
 
     class Config:
         env_file = ".env"

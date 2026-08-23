@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "962023543001",
+    "project_id": "avenzo-116165",
+    "storage_bucket": "avenzo-116165.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:962023543001:android:439940bf19aec60a4b6ec8",
+        "android_client_info": {
+          "package_name": "com.example.avenzo_consumer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD3xdpNPrnO4swndn47jpHAN06V-N4JMUY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:962023543001:android:a2ea89709f1599da4b6ec8",
+        "android_client_info": {
+          "package_name": "com.megaproject.avenzo_consumer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD3xdpNPrnO4swndn47jpHAN06V-N4JMUY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

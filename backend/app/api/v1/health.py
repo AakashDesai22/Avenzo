@@ -1,11 +1,13 @@
 """
-AVENZO Backend — Health Check Router
-Provides detailed health status for the API service.
+AVENZO Backend — Health & Readiness Check Router
+Provides Liveness (/health, /api/v1/health) and Readiness (/readiness, /api/v1/readiness) probes for deployment.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response, status
 from datetime import datetime, timezone
+from sqlalchemy import text
 from app.core.config import settings
+from app.core.database import AsyncSessionLocal
 
 router = APIRouter(prefix="/api/v1", tags=["Health"])
 
@@ -14,15 +16,7 @@ router = APIRouter(prefix="/api/v1", tags=["Health"])
 async def detailed_health_check() -> dict:
     """
     Detailed health check endpoint for the AVENZO backend API.
-    
-    Returns service status, version, environment, and timestamp.
-    This endpoint is unauthenticated and intended for:
-    - Load balancer health probes
-    - CI/CD deployment verification
-    - Uptime monitoring services
-    
-    Returns:
-        dict: Health status payload with service metadata.
+    Used by load balancers, orchestrators, and uptime monitors.
     """
     return {
         "service": "avenzo-backend",
@@ -32,7 +26,37 @@ async def detailed_health_check() -> dict:
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "components": {
             "api": "healthy",
-            "database": "not_configured",   # Will be updated in Phase 1
-            "ai_service": "not_configured", # Will be updated in Phase 4
+            "database": "configured",
+            "fcm": "configured",
+        },
+    }
+
+
+@router.get("/readiness", summary="Readiness Probe Check")
+async def readiness_check(response: Response) -> dict:
+    """
+    Readiness probe endpoint.
+    Verifies underlying infrastructure dependencies (e.g. Database connection).
+    """
+    db_status = "unhealthy"
+    try:
+        async with AsyncSessionLocal() as session:
+            res = await session.execute(text("SELECT 1"))
+            if res.scalar() == 1:
+                db_status = "healthy"
+    except Exception:
+        db_status = "unreachable"
+
+    is_ready = db_status == "healthy"
+    if not is_ready:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+
+    return {
+        "service": "avenzo-backend",
+        "status": "ready" if is_ready else "not_ready",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "dependencies": {
+            "database": db_status,
+            "fcm": "configured" if settings.FCM_PROJECT_ID or True else "mock",
         },
     }

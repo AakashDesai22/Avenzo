@@ -1,6 +1,6 @@
 """
-AVENZO Backend — Test Suite: Health Endpoint
-Tests for GET /health and GET /api/v1/health endpoints.
+AVENZO Backend — Test Suite: Health & Readiness Endpoints
+Tests for GET /health, GET /api/v1/health, and GET /api/v1/readiness endpoints.
 
 Run with:
     cd backend
@@ -53,6 +53,24 @@ async def test_api_v1_health_check():
 
 
 @pytest.mark.asyncio
+async def test_api_v1_readiness_check():
+    """
+    Test GET /api/v1/readiness returns readiness payload and status.
+    """
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get("/api/v1/readiness")
+
+    assert response.status_code in [200, 503]
+    data = response.json()
+    assert data["service"] == "avenzo-backend"
+    assert "status" in data
+    assert "dependencies" in data
+    assert "database" in data["dependencies"]
+
+
+@pytest.mark.asyncio
 async def test_health_response_contains_timestamp():
     """
     Test that the health response timestamp is an ISO 8601 string.
@@ -64,7 +82,6 @@ async def test_health_response_contains_timestamp():
 
     assert response.status_code == 200
     data = response.json()
-    # Basic ISO 8601 format check
     timestamp = data.get("timestamp", "")
     assert "T" in timestamp
     assert "Z" in timestamp or "+" in timestamp
