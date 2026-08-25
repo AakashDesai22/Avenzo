@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     FCM_CLIENT_EMAIL: str = ""
     FCM_CLIENT_ID: str = ""
 
+    # Expiry Monitoring Internal Trigger Secret
+    EXPIRY_MONITOR_SECRET: str = "dev-only-change-me"
+
     # Logging
     LOG_LEVEL: str = "INFO"
 
@@ -70,6 +73,14 @@ class Settings(BaseSettings):
             if "CHANGE_THIS_SECRET" in self.JWT_SECRET or len(self.JWT_SECRET) < 32:
                 raise ValueError(
                     "JWT_SECRET must be configured with a strong secret (at least 32 characters) in production."
+                )
+            if (
+                not self.EXPIRY_MONITOR_SECRET
+                or "change-me" in self.EXPIRY_MONITOR_SECRET.lower()
+                or len(self.EXPIRY_MONITOR_SECRET) < 16
+            ):
+                raise ValueError(
+                    "EXPIRY_MONITOR_SECRET must be configured with a strong secret (at least 16 characters) in production."
                 )
         return self
 

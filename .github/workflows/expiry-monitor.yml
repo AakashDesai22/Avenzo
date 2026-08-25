@@ -21,7 +21,7 @@ jobs:
 
           RESPONSE=$(curl --silent --show-error --fail-with-body \
             --request POST \
-            --url "${RENDER_API_URL}/api/v1/internal/expiry-monitor/run" \
+            --url "${RENDER_API_URL%/}/api/v1/internal/expiry-monitor/run" \
             --header "X-Expiry-Monitor-Secret: ${EXPIRY_MONITOR_SECRET}" \
             --header "Content-Type: application/json")
 

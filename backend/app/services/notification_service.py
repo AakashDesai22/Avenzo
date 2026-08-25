@@ -319,8 +319,15 @@ async def create_notification_record(
     # Check user preferences
     prefs = await get_or_create_user_preferences(session, user_id)
     
-    if notification_type.startswith("EXPIRY_") and not prefs.expiry_alerts:
-        logger.info(f"Notification suppressed due to user preferences: {notification_type}")
+    push_allowed = True
+    if notification_type.startswith("EXPIRY_") or notification_type == "PRODUCT_EXPIRED":
+        if not prefs.expiry_alerts:
+            push_allowed = False
+        elif notification_type in ("EXPIRY_TODAY", "PRODUCT_EXPIRED") and not prefs.critical_expiry_alerts:
+            push_allowed = False
+        
+        if not push_allowed:
+            logger.info(f"FCM push dispatch skipped due to user preferences: {notification_type}")
 
     record = NotificationRecord(
         user_id=user_id,
@@ -335,37 +342,38 @@ async def create_notification_record(
     await session.commit()
     await session.refresh(record)
 
-    # Fetch active devices with FCM tokens
-    device_stmt = select(ConsumerDevice).where(
-        ConsumerDevice.user_id == user_id,
-        ConsumerDevice.is_active == True,
-        ConsumerDevice.fcm_token != None,
-    )
-    device_res = await session.execute(device_stmt)
-    devices = list(device_res.scalars().all())
+    # Fetch active devices with FCM tokens if push is allowed
+    if push_allowed:
+        device_stmt = select(ConsumerDevice).where(
+            ConsumerDevice.user_id == user_id,
+            ConsumerDevice.is_active == True,
+            ConsumerDevice.fcm_token != None,
+        )
+        device_res = await session.execute(device_stmt)
+        devices = list(device_res.scalars().all())
 
-    if devices:
-        record.status = "SENT"
-        record.sent_at = utc_now()
-        any_success = False
-        for dev in devices:
-            if dev.fcm_token:
-                try:
-                    success = await _fcm_provider.send_push_notification(
-                        dev.fcm_token, title, body, {"notification_id": str(record.id)}
-                    )
-                    if success:
-                        any_success = True
-                except TokenUnregisteredError:
-                    masked = f"{dev.fcm_token[:10]}..." if len(dev.fcm_token) > 10 else dev.fcm_token
-                    logger.warning(
-                        f"Deactivating invalid device token (device_id: {dev.device_id}, token: {masked})"
-                    )
-                    dev.is_active = False
+        if devices:
+            record.status = "SENT"
+            record.sent_at = utc_now()
+            any_success = False
+            for dev in devices:
+                if dev.fcm_token:
+                    try:
+                        success = await _fcm_provider.send_push_notification(
+                            dev.fcm_token, title, body, {"notification_id": str(record.id)}
+                        )
+                        if success:
+                            any_success = True
+                    except TokenUnregisteredError:
+                        masked = f"{dev.fcm_token[:10]}..." if len(dev.fcm_token) > 10 else dev.fcm_token
+                        logger.warning(
+                            f"Deactivating invalid device token (device_id: {dev.device_id}, token: {masked})"
+                        )
+                        dev.is_active = False
 
-        if any_success:
-            record.status = "DELIVERED"
-        await session.commit()
+            if any_success:
+                record.status = "DELIVERED"
+            await session.commit()
 
     return record
 

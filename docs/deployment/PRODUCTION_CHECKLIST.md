@@ -30,3 +30,20 @@
 - [x] Auth token stored securely in `FlutterSecureStorage`.
 - [x] Android permissions (`INTERNET`, `POST_NOTIFICATIONS`, `CAMERA`) verified in `AndroidManifest.xml`.
 - [x] Android release APK successfully compiled (`flutter build apk --release`).
+
+## 6. Internal Expiry Monitoring & Trigger Security
+- [x] `EXPIRY_MONITOR_SECRET` configured strictly via server environment variables (e.g., Render Environment Variables).
+- [x] `validate_production_settings()` enforces strong secret validation (minimum 16 characters, forbids "change-me" defaults in production).
+- [x] `POST /api/v1/internal/expiry-monitor/run` protected via timing-safe header validation (`X-Expiry-Monitor-Secret`).
+- [x] Expiry monitoring cycle is fully idempotent; duplicate notifications are suppressed per item and threshold.
+- [x] User notification preferences strictly respected (push skipped when `expiry_alerts` / `critical_expiry_alerts` disabled).
+
+## 7. GitHub Actions External Expiry Scheduler
+- [x] GitHub Actions workflow `.github/workflows/expiry-monitor.yml` created with `schedule` (`0 1 * * *`) and `workflow_dispatch`.
+- [x] `RENDER_API_URL` repository secret configured in GitHub Actions.
+- [x] `EXPIRY_MONITOR_SECRET` repository secret configured in GitHub Actions.
+- [x] Secret masking verified (zero secret values printed in standard execution or error logs).
+- [x] `workflow_dispatch` manual trigger execution tested and verified.
+- [x] Scheduled automated execution verified.
+
+
