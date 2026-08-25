@@ -13,6 +13,9 @@ import { InventoryPage } from './pages/InventoryPage';
 import { BatchesPage } from './pages/BatchesPage';
 import { FefoPage } from './pages/FefoPage';
 import { RiskPage } from './pages/RiskPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
+import { UsersPage } from './pages/UsersPage';
+import { NotificationsPage } from './pages/NotificationsPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,19 +45,49 @@ export function App() {
             >
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="products" element={<ProductsPage />} />
-              <Route path="categories" element={<CategoriesPage />} />
-              <Route path="inventory" element={<InventoryPage />} />
-              <Route path="batches" element={<BatchesPage />} />
-              <Route path="fefo" element={<FefoPage />} />
+              
               <Route
-                path="risk"
+                path="products"
                 element={
                   <RoleGuard allowedRoles={['ADMIN', 'BUSINESS_MANAGER']}>
-                    <RiskPage />
+                    <ProductsPage />
                   </RoleGuard>
                 }
               />
+              
+              <Route
+                path="categories"
+                element={
+                  <RoleGuard allowedRoles={['ADMIN', 'BUSINESS_MANAGER']}>
+                    <CategoriesPage />
+                  </RoleGuard>
+                }
+              />
+              
+              <Route path="inventory" element={<InventoryPage />} />
+              <Route path="batches" element={<BatchesPage />} />
+              <Route path="fefo" element={<FefoPage />} />
+              <Route path="risk" element={<RiskPage />} />
+              
+              <Route
+                path="analytics"
+                element={
+                  <RoleGuard allowedRoles={['ADMIN', 'STAFF']}>
+                    <AnalyticsPage />
+                  </RoleGuard>
+                }
+              />
+
+              <Route
+                path="users"
+                element={
+                  <RoleGuard allowedRoles={['ADMIN']}>
+                    <UsersPage />
+                  </RoleGuard>
+                }
+              />
+
+              <Route path="notifications" element={<NotificationsPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

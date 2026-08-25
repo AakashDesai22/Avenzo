@@ -15,7 +15,6 @@ import { Input } from '../components/ui/Input';
 import { Table, Column } from '../components/ui/Table';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
-import { Card } from '../components/ui/Card';
 import { formatDate } from '../utils/formatters';
 import { SlidersHorizontal, History } from 'lucide-react';
 

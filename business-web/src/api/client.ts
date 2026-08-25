@@ -1,16 +1,20 @@
 /**
  * AVENZO Business Web — API Client
  * Centralized fetch client with automatic JWT authorization header injection,
- * single-retry token refresh logic on 401 response, and strict type safety.
+ * queued token refresh logic on 401 responses, and strict type safety.
  */
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const API_VERSION = import.meta.env.VITE_API_VERSION || '/api/v1';
 
-export const API_URL = `${API_BASE_URL}${API_VERSION}`;
+// Base URL with clean trailing/leading slash normalization
+const cleanBaseUrl = API_BASE_URL.replace(/\/+$/, '');
+const cleanVersion = API_VERSION.startsWith('/') ? API_VERSION : `/${API_VERSION}`;
+
+export const API_URL = `${cleanBaseUrl}${cleanVersion}`;
 
 /**
- * Get stored tokens from localStorage.
+ * Token Storage Helpers
  */
 export function getAccessToken(): string | null {
   return localStorage.getItem('avenzo_access_token');
@@ -31,26 +35,7 @@ export function clearTokens(): void {
 }
 
 /**
- * Base headers for API requests.
- */
-function getHeaders(withAuth = true): HeadersInit {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-  };
-
-  if (withAuth) {
-    const token = getAccessToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-  }
-
-  return headers;
-}
-
-/**
- * Standard backend ApiResponse wrapper.
+ * Standard Backend ApiResponse Contract
  */
 export interface ApiResponse<T> {
   success: boolean;
@@ -71,10 +56,45 @@ export interface ApiResponse<T> {
   };
 }
 
+/**
+ * Base Headers Helper
+ */
+function getHeaders(withAuth = true): HeadersInit {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+
+  if (withAuth) {
+    const token = getAccessToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+
+  return headers;
+}
+
+// Token Refresh Queue State
 let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: unknown) => void;
+  reject: (reason?: unknown) => void;
+}> = [];
+
+const processQueue = (error: unknown = null) => {
+  failedQueue.forEach((promise) => {
+    if (error) {
+      promise.reject(error);
+    } else {
+      promise.resolve();
+    }
+  });
+  failedQueue = [];
+};
 
 /**
- * Attempts to refresh the JWT access token once.
+ * Attempts to refresh access token using long-lived refresh token
  */
 async function refreshAccessToken(): Promise<boolean> {
   const refresh_token = getRefreshToken();
@@ -110,7 +130,7 @@ async function refreshAccessToken(): Promise<boolean> {
 }
 
 /**
- * Core fetch wrapper with 401 token refresh interceptor.
+ * Core Request Dispatcher with 401 Interceptor and Queued Retry
  */
 async function request<T>(
   path: string,
@@ -128,25 +148,41 @@ async function request<T>(
     },
   });
 
-  // Handle 401 Unauthorized
+  // Handle 401 Unauthorized for protected endpoints
   if (response.status === 401 && withAuth && !isRetry) {
     const isAuthEndpoint = path.includes('/auth/login') || path.includes('/auth/refresh');
     if (!isAuthEndpoint) {
-      if (!isRefreshing) {
-        isRefreshing = true;
-        const refreshed = await refreshAccessToken();
-        isRefreshing = false;
-
-        if (refreshed) {
-          // Retry original request once with new token
-          return request<T>(path, options, withAuth, true);
-        }
+      if (isRefreshing) {
+        // Queue concurrent requests while refresh is in flight
+        return new Promise<ApiResponse<T>>((resolve, reject) => {
+          failedQueue.push({
+            resolve: () => resolve(request<T>(path, options, withAuth, true)),
+            reject: (err) => reject(err),
+          });
+        });
       }
 
-      // Refresh failed -> clear auth & redirect
-      clearTokens();
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        window.location.href = '/login?session_expired=true';
+      isRefreshing = true;
+      const refreshed = await refreshAccessToken();
+
+      if (refreshed) {
+        processQueue(null);
+        isRefreshing = false;
+        return request<T>(path, options, withAuth, true);
+      } else {
+        processQueue(new Error('Session expired'));
+        isRefreshing = false;
+        clearTokens();
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+          window.location.href = '/login?session_expired=true';
+        }
+        return {
+          success: false,
+          error: {
+            code: 'SESSION_EXPIRED',
+            message: 'Your session has expired. Please sign in again.',
+          },
+        };
       }
     }
   }

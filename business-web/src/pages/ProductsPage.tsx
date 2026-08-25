@@ -10,7 +10,7 @@ import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
 import { formatCurrency } from '../utils/formatters';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Search } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 export const ProductsPage: React.FC = () => {
   const queryClient = useQueryClient();

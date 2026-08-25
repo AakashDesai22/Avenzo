@@ -2,7 +2,7 @@
  * AVENZO Business Web — Inventory, Batches, Warehouses API Wrapper
  */
 
-import { apiGet, apiPost, apiPut, ApiResponse } from './client';
+import { apiGet, apiPost, ApiResponse } from './client';
 import {
   Warehouse,
   WarehouseLocation,
