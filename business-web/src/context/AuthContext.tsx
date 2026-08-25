@@ -1,12 +1,13 @@
 /**
  * AVENZO Business Web — Auth Context
- * Provides centralized authentication state, user profile, role checks, and login/logout methods.
+ * Provides centralized authentication state, user profile, role checks, and capability verification.
  */
 
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { User, LoginRequest, UserRoleName } from '../types/auth';
 import { loginApi, getMeApi, logoutApi } from '../api/auth.api';
 import { getAccessToken } from '../api/client';
+import { Capability, hasCapability as checkCapability } from '../config/permissions.config';
 
 export interface AuthContextType {
   user: User | null;
@@ -15,6 +16,7 @@ export interface AuthContextType {
   login: (credentials: LoginRequest) => Promise<void>;
   logout: () => void;
   hasRole: (allowedRoles: UserRoleName[]) => boolean;
+  can: (capability: Capability) => boolean;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -96,6 +98,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return allowedRoles.includes(user.role.name);
   };
 
+  const can = (capability: Capability): boolean => {
+    if (!user || !user.role) return false;
+    return checkCapability(user.role.name, capability);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -105,6 +112,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         login,
         logout,
         hasRole,
+        can,
       }}
     >
       {children}

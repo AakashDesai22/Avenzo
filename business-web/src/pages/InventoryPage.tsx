@@ -16,6 +16,7 @@ import { Table, Column } from '../components/ui/Table';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
 import { formatDate } from '../utils/formatters';
+import { useAuth } from '../context/AuthContext';
 import { SlidersHorizontal, History } from 'lucide-react';
 
 export const InventoryPage: React.FC = () => {
@@ -153,15 +154,20 @@ export const InventoryPage: React.FC = () => {
     { key: 'created_at', header: 'Timestamp', render: (t) => formatDate(t.created_at) },
   ];
 
+  const { can } = useAuth();
+  const canAdjust = can('adjust_inventory');
+
   return (
     <div>
       <Header
         title="Inventory Management"
         subtitle="Live stock balances, location bins, and stock adjustments"
         action={
-          <Button onClick={handleOpenAdjust}>
-            <SlidersHorizontal size={18} /> Adjust Stock Level
-          </Button>
+          canAdjust ? (
+            <Button onClick={handleOpenAdjust}>
+              <SlidersHorizontal size={18} /> Adjust Stock Level
+            </Button>
+          ) : null
         }
       />
 

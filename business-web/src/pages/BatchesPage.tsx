@@ -10,10 +10,13 @@ import { Table, Column } from '../components/ui/Table';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
 import { formatDate } from '../utils/formatters';
+import { useAuth } from '../context/AuthContext';
 import { Plus } from 'lucide-react';
 
 export const BatchesPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const { can } = useAuth();
+  const canCreate = can('create_batches');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Form states
@@ -106,9 +109,11 @@ export const BatchesPage: React.FC = () => {
         title="Batch Management"
         subtitle="Track product manufacturing and expiry dates"
         action={
-          <Button onClick={() => setIsModalOpen(true)}>
-            <Plus size={18} /> Create New Batch
-          </Button>
+          canCreate ? (
+            <Button onClick={() => setIsModalOpen(true)}>
+              <Plus size={18} /> Create New Batch
+            </Button>
+          ) : null
         }
       />
 
