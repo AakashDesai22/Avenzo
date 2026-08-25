@@ -1,0 +1,29 @@
+name: Avenzo Expiry Monitor
+
+on:
+  schedule:
+    # Runs daily at 02:30 UTC = 08:00 AM IST
+    - cron: "30 2 * * *"
+
+  workflow_dispatch:
+
+jobs:
+  expiry-monitor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run expiry monitoring cycle
+        env:
+          RENDER_API_URL: ${{ secrets.RENDER_API_URL }}
+          EXPIRY_MONITOR_SECRET: ${{ secrets.EXPIRY_MONITOR_SECRET }}
+        run: |
+          set -e
+
+          RESPONSE=$(curl --silent --show-error --fail-with-body \
+            --request POST \
+            --url "${RENDER_API_URL}/api/v1/internal/expiry-monitor/run" \
+            --header "X-Expiry-Monitor-Secret: ${EXPIRY_MONITOR_SECRET}" \
+            --header "Content-Type: application/json")
+
+          echo "Expiry monitoring completed successfully."
+          echo "$RESPONSE"
