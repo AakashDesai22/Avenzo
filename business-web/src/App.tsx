@@ -11,6 +11,7 @@ import { ProductsPage } from './pages/ProductsPage';
 import { CategoriesPage } from './pages/CategoriesPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { BatchesPage } from './pages/BatchesPage';
+import { WarehousesPage } from './pages/WarehousesPage';
 import { FefoPage } from './pages/FefoPage';
 import { RiskPage } from './pages/RiskPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
@@ -66,6 +67,7 @@ export function App() {
               
               <Route path="inventory" element={<InventoryPage />} />
               <Route path="batches" element={<BatchesPage />} />
+              <Route path="warehouses" element={<WarehousesPage />} />
               <Route path="fefo" element={<FefoPage />} />
               <Route path="risk" element={<RiskPage />} />
               

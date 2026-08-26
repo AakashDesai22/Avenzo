@@ -12,6 +12,7 @@ import {
   Layers,
   Boxes,
   Award,
+  Building2,
   TrendingUp,
   BarChart3,
   Users,
@@ -60,6 +61,12 @@ export const Sidebar: React.FC = () => {
       label: 'Batches',
       path: '/batches',
       icon: Boxes,
+      roles: ['ADMIN', 'BUSINESS_MANAGER', 'STAFF'],
+    },
+    {
+      label: 'Warehouses',
+      path: '/warehouses',
+      icon: Building2,
       roles: ['ADMIN', 'BUSINESS_MANAGER', 'STAFF'],
     },
     {

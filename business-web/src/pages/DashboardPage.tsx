@@ -23,6 +23,7 @@ import {
   TrendingDown,
   DollarSign,
   Package,
+  Building2,
   Boxes,
   Award,
   Users,
@@ -130,6 +131,7 @@ export const DashboardPage: React.FC = () => {
     { label: 'Manage Products', path: '/products', icon: Package, roles: ['ADMIN', 'BUSINESS_MANAGER'] },
     { label: 'Inventory Balances', path: '/inventory', icon: Layers, roles: ['ADMIN', 'BUSINESS_MANAGER', 'STAFF'] },
     { label: 'Product Batches', path: '/batches', icon: Boxes, roles: ['ADMIN', 'BUSINESS_MANAGER', 'STAFF'] },
+    { label: 'Warehouse Facilities', path: '/warehouses', icon: Building2, roles: ['ADMIN', 'BUSINESS_MANAGER', 'STAFF'] },
     { label: 'FEFO Allocation', path: '/fefo', icon: Award, roles: ['ADMIN', 'BUSINESS_MANAGER', 'STAFF'] },
     { label: 'Expiry Risk', path: '/risk', icon: TrendingDown, roles: ['ADMIN', 'BUSINESS_MANAGER', 'STAFF'] },
     ...(canManageUsers

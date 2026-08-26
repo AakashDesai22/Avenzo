@@ -1,3 +1,8 @@
+/**
+ * AVENZO Business Web — Inventory Operations & Audit Movement Log Page
+ * Live stock balances, location bins, stock adjustments, and audit transaction log.
+ */
+
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -17,19 +22,26 @@ import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
 import { formatDate } from '../utils/formatters';
 import { useAuth } from '../context/AuthContext';
-import { SlidersHorizontal, History } from 'lucide-react';
+import { ProductReceivingModal } from '../components/inventory/ProductReceivingModal';
+import { SlidersHorizontal, History, PackageCheck, Filter } from 'lucide-react';
 
 export const InventoryPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'balances' | 'audit'>('balances');
+  const { can } = useAuth();
+  const canAdjust = can('adjust_inventory');
 
+  const [activeTab, setActiveTab] = useState<'balances' | 'audit'>('balances');
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>('');
+  const [selectedTxType, setSelectedTxType] = useState<string>('');
+
   const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
+  const [isReceivingModalOpen, setIsReceivingModalOpen] = useState(false);
 
   // Form state for Stock Adjustment
   const [adjProductId, setAdjProductId] = useState('');
   const [adjBatchId, setAdjBatchId] = useState('');
   const [adjWarehouseId, setAdjWarehouseId] = useState('');
+  const [adjLocationId, setAdjLocationId] = useState('');
   const [adjQuantityChange, setAdjQuantityChange] = useState('');
   const [adjType, setAdjType] = useState('RECEIPT');
   const [adjNotes, setAdjNotes] = useState('');
@@ -42,7 +54,7 @@ export const InventoryPage: React.FC = () => {
 
   const { data: txRes, isLoading: isTxLoading } = useQuery({
     queryKey: ['inventoryTransactions'],
-    queryFn: () => getInventoryTransactionsApi(),
+    queryFn: () => getInventoryTransactionsApi({ limit: 100 }),
     enabled: activeTab === 'audit',
   });
 
@@ -62,6 +74,8 @@ export const InventoryPage: React.FC = () => {
     queryFn: () => getBatchesApi({ product_id: adjProductId || undefined }),
     enabled: isAdjustModalOpen && !!adjProductId,
   });
+
+  const selectedAdjWarehouse = warehousesRes?.data?.find((w) => w.id === adjWarehouseId);
 
   const adjustMutation = useMutation({
     mutationFn: (data: any) => adjustInventoryApi(data),
@@ -83,6 +97,7 @@ export const InventoryPage: React.FC = () => {
     setAdjProductId('');
     setAdjBatchId('');
     setAdjWarehouseId('');
+    setAdjLocationId('');
     setAdjQuantityChange('');
     setAdjType('RECEIPT');
     setAdjNotes('');
@@ -115,6 +130,7 @@ export const InventoryPage: React.FC = () => {
       product_id: adjProductId,
       batch_id: adjBatchId,
       warehouse_id: adjWarehouseId,
+      location_id: adjLocationId || undefined,
       quantity_change: qtyNum,
       transaction_type: adjType,
       notes: adjNotes || undefined,
@@ -124,12 +140,29 @@ export const InventoryPage: React.FC = () => {
   const invColumns: Column<Inventory>[] = [
     { key: 'product', header: 'Product', render: (i) => <span style={{ fontWeight: 600 }}>{i.product?.name}</span> },
     { key: 'sku', header: 'SKU', render: (i) => i.product?.sku },
-    { key: 'batch', header: 'Batch', render: (i) => i.batch?.batch_number },
+    { key: 'batch', header: 'Batch Number', render: (i) => i.batch?.batch_number },
     { key: 'expiry', header: 'Expiry Date', render: (i) => formatDate(i.batch?.expiry_date) },
     { key: 'warehouse', header: 'Warehouse', render: (i) => i.warehouse?.name },
-    { key: 'location', header: 'Location', render: (i) => i.location?.location_code || 'Unassigned' },
-    { key: 'quantity_on_hand', header: 'On Hand', render: (i) => i.quantity_on_hand.toLocaleString() },
-    { key: 'quantity_reserved', header: 'Reserved', render: (i) => i.quantity_reserved.toLocaleString() },
+    {
+      key: 'location',
+      header: 'Location Bin',
+      render: (i) => (
+        <span
+          style={{
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            padding: '0.125rem 0.375rem',
+            borderRadius: '0.25rem',
+            backgroundColor: 'var(--color-border-subtle)',
+            border: '1px solid var(--color-border)',
+          }}
+        >
+          {i.location?.location_code || 'Default Storage'}
+        </span>
+      ),
+    },
+    { key: 'quantity_on_hand', header: 'On Hand Qty', render: (i) => i.quantity_on_hand.toLocaleString() },
+    { key: 'quantity_reserved', header: 'Reserved Qty', render: (i) => i.quantity_reserved.toLocaleString() },
     {
       key: 'quantity_available',
       header: 'Available Stock',
@@ -137,36 +170,58 @@ export const InventoryPage: React.FC = () => {
     },
   ];
 
+  const filteredTransactions = (txRes?.data || []).filter((t) => {
+    if (!selectedTxType) return true;
+    return t.transaction_type === selectedTxType;
+  });
+
   const txColumns: Column<InventoryTransaction>[] = [
-    { key: 'type', header: 'Type', render: (t) => <Badge variant={t.transaction_type === 'FEFO_VIOLATION' ? 'warning' : 'info'}>{t.transaction_type}</Badge> },
+    {
+      key: 'type',
+      header: 'Transaction Type',
+      render: (t) => {
+        let variant: 'success' | 'warning' | 'danger' | 'info' = 'info';
+        if (t.transaction_type === 'RECEIPT') variant = 'success';
+        if (t.transaction_type === 'DAMAGE' || t.transaction_type === 'EXPIRY') variant = 'danger';
+        if (t.transaction_type === 'FEFO_VIOLATION') variant = 'warning';
+        return <Badge variant={variant}>{t.transaction_type}</Badge>;
+      },
+    },
     {
       key: 'change',
       header: 'Qty Change',
       render: (t) => (
-        <span style={{ fontWeight: 600, color: t.quantity_change > 0 ? 'var(--color-primary)' : t.quantity_change < 0 ? 'var(--color-danger)' : 'var(--color-text-secondary)' }}>
-          {t.quantity_change > 0 ? `+${t.quantity_change}` : t.quantity_change}
+        <span
+          style={{
+            fontWeight: 700,
+            color: t.quantity_change > 0 ? '#166534' : t.quantity_change < 0 ? '#dc2626' : 'var(--color-text-secondary)',
+          }}
+        >
+          {t.quantity_change > 0 ? `+${t.quantity_change.toLocaleString()}` : t.quantity_change.toLocaleString()}
         </span>
       ),
     },
-    { key: 'before', header: 'Before', render: (t) => t.quantity_before },
-    { key: 'after', header: 'After', render: (t) => t.quantity_after },
-    { key: 'notes', header: 'Audit Notes', render: (t) => t.notes || 'N/A' },
+    { key: 'before', header: 'Before Qty', render: (t) => t.quantity_before.toLocaleString() },
+    { key: 'after', header: 'After Qty', render: (t) => t.quantity_after.toLocaleString() },
+    { key: 'notes', header: 'Audit / Reason Notes', render: (t) => t.notes || 'N/A' },
     { key: 'created_at', header: 'Timestamp', render: (t) => formatDate(t.created_at) },
   ];
-
-  const { can } = useAuth();
-  const canAdjust = can('adjust_inventory');
 
   return (
     <div>
       <Header
-        title="Inventory Management"
-        subtitle="Live stock balances, location bins, and stock adjustments"
+        title="Inventory Operations"
+        subtitle="Live stock balances, location bins, stock adjustments, and audit transaction logs"
         action={
           canAdjust ? (
-            <Button onClick={handleOpenAdjust}>
-              <SlidersHorizontal size={18} /> Adjust Stock Level
-            </Button>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <Button variant="secondary" onClick={handleOpenAdjust}>
+                <SlidersHorizontal size={18} /> Adjust Stock Level
+              </Button>
+              <Button onClick={() => setIsReceivingModalOpen(true)}>
+                <PackageCheck size={18} /> Receive Product Batch
+              </Button>
+            </div>
           ) : null
         }
       />
@@ -186,7 +241,7 @@ export const InventoryPage: React.FC = () => {
               cursor: 'pointer',
             }}
           >
-            Stock Balances
+            Stock Balances & Location Bins
           </button>
           <button
             onClick={() => setActiveTab('audit')}
@@ -210,7 +265,8 @@ export const InventoryPage: React.FC = () => {
         {activeTab === 'balances' ? (
           <>
             {/* Warehouse Filter */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>Filter Facility:</span>
               <select
                 value={selectedWarehouse}
                 onChange={(e) => setSelectedWarehouse(e.target.value)}
@@ -218,7 +274,7 @@ export const InventoryPage: React.FC = () => {
                   padding: '0.5rem 1rem',
                   backgroundColor: 'var(--color-surface)',
                   border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius-md)',
+                  borderRadius: '0.375rem',
                   color: 'var(--color-text-primary)',
                 }}
               >
@@ -234,12 +290,39 @@ export const InventoryPage: React.FC = () => {
             <Table columns={invColumns} data={inventoryRes?.data || []} keyExtractor={(i) => i.id} isLoading={isInvLoading} />
           </>
         ) : (
-          <Table columns={txColumns} data={txRes?.data || []} keyExtractor={(t) => t.id} isLoading={isTxLoading} />
+          <>
+            {/* Transaction Type Filter */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.5rem' }}>
+              <Filter size={16} color="var(--color-text-secondary)" />
+              <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>Filter Transaction Type:</span>
+              <select
+                value={selectedTxType}
+                onChange={(e) => setSelectedTxType(e.target.value)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: '0.375rem',
+                  color: 'var(--color-text-primary)',
+                }}
+              >
+                <option value="">All Transaction Types</option>
+                <option value="RECEIPT">RECEIPT (+)</option>
+                <option value="ADJUSTMENT">ADJUSTMENT (+/-)</option>
+                <option value="DAMAGE">DAMAGE (-)</option>
+                <option value="EXPIRY">EXPIRY (-)</option>
+                <option value="TRANSFER">TRANSFER</option>
+                <option value="FEFO_VIOLATION">FEFO VIOLATION</option>
+              </select>
+            </div>
+
+            <Table columns={txColumns} data={filteredTransactions} keyExtractor={(t) => t.id} isLoading={isTxLoading} />
+          </>
         )}
       </div>
 
       {/* Stock Adjustment Modal */}
-      <Modal isOpen={isAdjustModalOpen} onClose={closeAdjustModal} title="Adjust Stock Level" subtitle="Record stock receipt, adjustment, or damage">
+      <Modal isOpen={isAdjustModalOpen} onClose={closeAdjustModal} title="Adjust Stock Level" subtitle="Record inventory stock receipt, adjustment, or damage">
         <form onSubmit={handleSubmitAdjust} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {formError && (
             <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-danger-bg)', color: '#fca5a5', borderRadius: 'var(--radius-md)', fontSize: '0.875rem' }}>
@@ -286,16 +369,36 @@ export const InventoryPage: React.FC = () => {
           </div>
 
           <div>
-            <label style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '0.375rem' }}>Warehouse *</label>
+            <label style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '0.375rem' }}>Warehouse Facility *</label>
             <select
               value={adjWarehouseId}
-              onChange={(e) => setAdjWarehouseId(e.target.value)}
+              onChange={(e) => {
+                setAdjWarehouseId(e.target.value);
+                setAdjLocationId('');
+              }}
               required
               style={{ width: '100%', padding: '0.625rem', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)' }}
             >
               {warehousesRes?.data?.map((wh) => (
                 <option key={wh.id} value={wh.id}>
                   {wh.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '0.375rem' }}>Location Bin (Optional)</label>
+            <select
+              value={adjLocationId}
+              onChange={(e) => setAdjLocationId(e.target.value)}
+              disabled={!adjWarehouseId}
+              style={{ width: '100%', padding: '0.625rem', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)' }}
+            >
+              <option value="">-- Default Storage --</option>
+              {selectedAdjWarehouse?.locations?.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.location_code} ({loc.description || 'Bin'})
                 </option>
               ))}
             </select>
@@ -314,11 +417,12 @@ export const InventoryPage: React.FC = () => {
                 <option value="ADJUSTMENT">ADJUSTMENT (+/-)</option>
                 <option value="DAMAGE">DAMAGE (-)</option>
                 <option value="EXPIRY">EXPIRY (-)</option>
+                <option value="TRANSFER">TRANSFER</option>
               </select>
             </div>
           </div>
 
-          <Input label="Audit Notes" placeholder="Reason for adjustment..." value={adjNotes} onChange={(e) => setAdjNotes(e.target.value)} />
+          <Input label="Audit / Reason Notes *" placeholder="Reason for inventory adjustment..." value={adjNotes} onChange={(e) => setAdjNotes(e.target.value)} required />
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
             <Button type="button" variant="secondary" onClick={closeAdjustModal}>
@@ -330,6 +434,9 @@ export const InventoryPage: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Guided Receiving Workflow Modal */}
+      <ProductReceivingModal isOpen={isReceivingModalOpen} onClose={() => setIsReceivingModalOpen(false)} />
     </div>
   );
 };
