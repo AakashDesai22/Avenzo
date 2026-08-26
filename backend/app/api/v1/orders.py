@@ -12,10 +12,11 @@ from app.core.database import get_db
 from app.core.dependencies import require_roles
 from app.models.user import User
 from app.schemas.order import OrderCheckoutRequest, OrderRead
+from app.schemas.order_allocation import OrderBatchAllocationRead
 from app.schemas.common import ApiResponse
-from app.services import checkout_service
+from app.services import checkout_service, fulfillment_service
 
-router = APIRouter(prefix="/orders", tags=["Consumer Orders & Checkout"])
+router = APIRouter(prefix="/orders", tags=["Consumer Orders & Order Fulfillment"])
 
 
 @router.post("", response_model=ApiResponse[OrderRead], status_code=status.HTTP_201_CREATED)
@@ -59,3 +60,90 @@ async def get_my_order_detail(
     """Get detailed consumer order view by ID."""
     order = await checkout_service.get_order_by_id(session, order_id, current_user.id)
     return ApiResponse(success=True, data=order)
+
+
+# ----------------------------------------------------------------------
+# PHASE 10C: OPERATIONAL ORDER FULFILLMENT ENDPOINTS
+# ----------------------------------------------------------------------
+
+@router.post("/{order_id}/confirm", response_model=ApiResponse[OrderRead])
+async def confirm_order_endpoint(
+    order_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(["ADMIN", "BUSINESS_MANAGER"])),
+):
+    """Confirm pending order (ADMIN, BUSINESS_MANAGER)."""
+    order = await fulfillment_service.confirm_order(session, order_id)
+    return ApiResponse(success=True, data=order, message="Order confirmed successfully.")
+
+
+@router.post("/{order_id}/allocate", response_model=ApiResponse[OrderRead])
+async def allocate_order_fefo_endpoint(
+    order_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(["ADMIN", "BUSINESS_MANAGER"])),
+):
+    """Execute server-side FEFO batch allocation for confirmed order (ADMIN, BUSINESS_MANAGER)."""
+    order = await fulfillment_service.allocate_order_fefo(session, order_id)
+    return ApiResponse(success=True, data=order, message="Order FEFO batch allocation complete.")
+
+
+@router.post("/{order_id}/pack", response_model=ApiResponse[OrderRead])
+async def pack_order_endpoint(
+    order_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(["ADMIN", "BUSINESS_MANAGER"])),
+):
+    """Mark order as packed and ready for dispatch (ADMIN, BUSINESS_MANAGER)."""
+    order = await fulfillment_service.pack_order(session, order_id)
+    return ApiResponse(success=True, data=order, message="Order packed successfully.")
+
+
+@router.post("/{order_id}/dispatch", response_model=ApiResponse[OrderRead])
+async def dispatch_order_endpoint(
+    order_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(["ADMIN", "BUSINESS_MANAGER"])),
+):
+    """Dispatch/ship packed order and execute physical inventory stock deduction (ADMIN, BUSINESS_MANAGER)."""
+    order = await fulfillment_service.dispatch_order(session, order_id)
+    return ApiResponse(success=True, data=order, message="Order dispatched/shipped. Physical stock deducted.")
+
+
+@router.post("/{order_id}/deliver", response_model=ApiResponse[OrderRead])
+async def deliver_order_endpoint(
+    order_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(["ADMIN", "BUSINESS_MANAGER"])),
+):
+    """Mark shipped order as delivered to consumer (ADMIN, BUSINESS_MANAGER)."""
+    order = await fulfillment_service.deliver_order(session, order_id)
+    return ApiResponse(success=True, data=order, message="Order delivered successfully.")
+
+
+@router.post("/{order_id}/cancel", response_model=ApiResponse[OrderRead])
+async def cancel_order_endpoint(
+    order_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(["ADMIN", "BUSINESS_MANAGER", "CONSUMER"])),
+):
+    """Cancel order pre-shipment and release reserved inventory stock (ADMIN, BUSINESS_MANAGER, CONSUMER for own order)."""
+    is_consumer = current_user.role.name == "CONSUMER" if current_user.role else False
+    order = await fulfillment_service.cancel_order(
+        session, order_id, user_id=current_user.id, is_consumer=is_consumer
+    )
+    return ApiResponse(success=True, data=order, message="Order cancelled and stock reservation released.")
+
+
+@router.get("/{order_id}/allocations", response_model=ApiResponse[List[OrderBatchAllocationRead]])
+async def get_order_allocations_endpoint(
+    order_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(["ADMIN", "BUSINESS_MANAGER", "STAFF", "CONSUMER"])),
+):
+    """Retrieve exact batch allocation details for an order (ADMIN, BUSINESS_MANAGER, STAFF, CONSUMER for own order)."""
+    is_consumer = current_user.role.name == "CONSUMER" if current_user.role else False
+    allocs = await fulfillment_service.get_order_allocations(
+        session, order_id, user_id=current_user.id, is_consumer=is_consumer
+    )
+    return ApiResponse(success=True, data=allocs)

@@ -8,6 +8,7 @@ from typing import List, Optional
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.marketplace import MarketplaceProductRead
+from app.schemas.order_allocation import OrderBatchAllocationRead
 
 
 class OrderCheckoutRequest(BaseModel):
@@ -29,6 +30,7 @@ class OrderItemRead(BaseModel):
     total_price: Decimal
     fulfillment_status: str
     product: Optional[MarketplaceProductRead] = None
+    allocations: List[OrderBatchAllocationRead] = []
     created_at: datetime
     updated_at: datetime
 

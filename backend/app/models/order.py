@@ -30,6 +30,7 @@ class Order(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
 
     user = relationship("User", backref="orders", foreign_keys=[user_id])
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    allocations = relationship("OrderBatchAllocation", back_populates="order", cascade="all, delete-orphan")
 
 
 class OrderItem(Base, UUIDMixin, TimestampMixin):
@@ -46,3 +47,4 @@ class OrderItem(Base, UUIDMixin, TimestampMixin):
 
     order = relationship("Order", back_populates="items")
     product = relationship("Product")
+    allocations = relationship("OrderBatchAllocation", back_populates="order_item", cascade="all, delete-orphan")

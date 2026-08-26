@@ -15,6 +15,7 @@ from app.models.recommendation import ConsumerRecommendation
 from app.models.notification import NotificationPreference, ConsumerDevice, NotificationRecord
 from app.models.cart import Cart, CartItem
 from app.models.order import Order, OrderItem
+from app.models.order_allocation import OrderBatchAllocation
 
 __all__ = [
     "Base",
@@ -45,4 +46,5 @@ __all__ = [
     "CartItem",
     "Order",
     "OrderItem",
+    "OrderBatchAllocation",
 ]
