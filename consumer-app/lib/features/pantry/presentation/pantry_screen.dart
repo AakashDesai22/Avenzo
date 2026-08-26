@@ -150,15 +150,20 @@ class _PantryScreenState extends ConsumerState<PantryScreen> {
         return _buildEmptyState(context);
       }
 
+      final hasRecalledItems = state.items.any((item) => item.isRecalled);
+
       return RefreshIndicator(
         onRefresh: () async {
           await ref.read(pantryNotifierProvider.notifier).fetchPantryItems();
         },
         child: ListView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: state.items.length,
+          itemCount: state.items.length + (hasRecalledItems ? 1 : 0),
           itemBuilder: (context, index) {
-            final item = state.items[index];
+            if (hasRecalledItems && index == 0) {
+              return _buildRecallWarningBanner(context);
+            }
+            final item = state.items[hasRecalledItems ? index - 1 : index];
             return _buildPantryItemCard(context, item);
           },
         ),
@@ -166,6 +171,35 @@ class _PantryScreenState extends ConsumerState<PantryScreen> {
     }
 
     return const SizedBox.shrink();
+  }
+
+  Widget _buildRecallWarningBanner(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFCA5A5)),
+      ),
+      child: Row(
+        children: const [
+          Icon(Icons.warning_amber_rounded, color: Color(0xFF991B1B), size: 28),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'URGENT SAFETY RECALL: One or more items in your pantry have been recalled by the manufacturer. Please check item details.',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF991B1B),
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildEmptyState(BuildContext context) {
@@ -219,7 +253,7 @@ class _PantryScreenState extends ConsumerState<PantryScreen> {
   }
 
   Widget _buildPantryItemCard(BuildContext context, PantryItemModel item) {
-    final statusColor = _getExpiryStatusColor(item.expiryStatus);
+    final statusColor = item.isRecalled ? const Color(0xFF991B1B) : _getExpiryStatusColor(item.expiryStatus);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -235,16 +269,18 @@ class _PantryScreenState extends ConsumerState<PantryScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
+                  color: item.isRecalled ? const Color(0xFFFEE2E2) : AppColors.primaryLight,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  item.storageLocation == 'fridge'
-                      ? Icons.ac_unit_outlined
-                      : (item.storageLocation == 'freezer'
-                          ? Icons.severe_cold_outlined
-                          : Icons.kitchen_outlined),
-                  color: AppColors.primary,
+                  item.isRecalled
+                      ? Icons.warning_amber_rounded
+                      : (item.storageLocation == 'fridge'
+                          ? Icons.ac_unit_outlined
+                          : (item.storageLocation == 'freezer'
+                              ? Icons.severe_cold_outlined
+                              : Icons.kitchen_outlined)),
+                  color: item.isRecalled ? const Color(0xFF991B1B) : AppColors.primary,
                   size: 24,
                 ),
               ),
@@ -255,10 +291,10 @@ class _PantryScreenState extends ConsumerState<PantryScreen> {
                   children: [
                     Text(
                       item.displayName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        color: item.isRecalled ? const Color(0xFF991B1B) : AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -279,7 +315,7 @@ class _PantryScreenState extends ConsumerState<PantryScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  item.formattedDte,
+                  item.isRecalled ? 'RECALLED' : item.formattedDte,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,

@@ -57,6 +57,8 @@ class PantryItemRead(BaseModel):
     product_id: Optional[UUID] = None
     product: Optional[ProductRead] = None
     batch_id: Optional[UUID] = None
+    batch_number: Optional[str] = None
+    order_item_id: Optional[UUID] = None
     custom_name: Optional[str] = None
     barcode: Optional[str] = None
     quantity: Decimal
@@ -65,6 +67,9 @@ class PantryItemRead(BaseModel):
     expiry_date: Optional[date] = None
     storage_location: str
     status: str
+    is_recalled: bool = False
+    recalled_at: Optional[datetime] = None
+    recall_reason: Optional[str] = None
     notes: Optional[str] = None
     days_to_expiry: Optional[int] = None
     expiry_status: str = "N/A"

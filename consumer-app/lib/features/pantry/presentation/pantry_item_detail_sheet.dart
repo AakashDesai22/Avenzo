@@ -265,6 +265,46 @@ class _PantryItemDetailSheetState extends ConsumerState<PantryItemDetailSheet> {
             ],
           ),
           const SizedBox(height: 16),
+          if (widget.item.isRecalled) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFCA5A5)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.warning_amber_rounded, color: Color(0xFF991B1B), size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'MANUFACTURER SAFETY RECALL',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF991B1B),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    widget.item.recallReason ?? 'This product batch has been recalled for safety reasons. Please do not consume.',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF7F1D1D),
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -281,13 +321,15 @@ class _PantryItemDetailSheetState extends ConsumerState<PantryItemDetailSheet> {
               ),
               _buildBadge(
                 label: widget.item.formattedDte,
-                icon: Icons.timer_outlined,
-                color: statusColor,
-                bgColor: statusColor.withValues(alpha: 0.12),
+                icon: widget.item.isRecalled ? Icons.warning_amber_rounded : Icons.timer_outlined,
+                color: widget.item.isRecalled ? const Color(0xFF991B1B) : statusColor,
+                bgColor: (widget.item.isRecalled ? const Color(0xFF991B1B) : statusColor).withValues(alpha: 0.12),
               ),
             ],
           ),
           const Divider(height: 32),
+          if (widget.item.batchNumber != null && widget.item.batchNumber!.isNotEmpty)
+            _buildDetailRow(Icons.pin_outlined, 'Batch Number', widget.item.batchNumber!),
           _buildDetailRow(Icons.event_outlined, 'Expiry Date', widget.item.formattedExpiry),
           if (widget.item.barcode != null && widget.item.barcode!.isNotEmpty)
             _buildDetailRow(Icons.qr_code_rounded, 'Barcode', widget.item.barcode!),

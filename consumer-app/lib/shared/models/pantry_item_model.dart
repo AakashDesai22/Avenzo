@@ -56,6 +56,8 @@ class PantryItemModel extends Equatable {
   final String? productId;
   final ProductSummaryModel? product;
   final String? batchId;
+  final String? batchNumber;
+  final String? orderItemId;
   final String? customName;
   final String? barcode;
   final double quantity;
@@ -64,6 +66,9 @@ class PantryItemModel extends Equatable {
   final DateTime? expiryDate;
   final String storageLocation;
   final String status;
+  final bool isRecalled;
+  final DateTime? recalledAt;
+  final String? recallReason;
   final String? notes;
   final int? daysToExpiry;
   final String expiryStatus;
@@ -76,6 +81,8 @@ class PantryItemModel extends Equatable {
     this.productId,
     this.product,
     this.batchId,
+    this.batchNumber,
+    this.orderItemId,
     this.customName,
     this.barcode,
     required this.quantity,
@@ -84,6 +91,9 @@ class PantryItemModel extends Equatable {
     this.expiryDate,
     required this.storageLocation,
     required this.status,
+    this.isRecalled = false,
+    this.recalledAt,
+    this.recallReason,
     this.notes,
     this.daysToExpiry,
     required this.expiryStatus,
@@ -110,6 +120,7 @@ class PantryItemModel extends Equatable {
 
   /// Human readable DTE string e.g. "5 days left", "Expired 2 days ago"
   String get formattedDte {
+    if (isRecalled) return 'RECALLED — DO NOT CONSUME';
     if (expiryStatus == 'N/A' || daysToExpiry == null) {
       return 'No expiry';
     }
@@ -135,6 +146,8 @@ class PantryItemModel extends Equatable {
           ? ProductSummaryModel.fromJson(json['product'] as Map<String, dynamic>)
           : null,
       batchId: json['batch_id'] as String?,
+      batchNumber: json['batch_number'] as String?,
+      orderItemId: json['order_item_id'] as String?,
       customName: json['custom_name'] as String?,
       barcode: json['barcode'] as String?,
       quantity: (json['quantity'] is num)
@@ -149,6 +162,11 @@ class PantryItemModel extends Equatable {
           : null,
       storageLocation: json['storage_location'] as String? ?? 'pantry',
       status: json['status'] as String? ?? 'active',
+      isRecalled: json['is_recalled'] as bool? ?? false,
+      recalledAt: json['recalled_at'] != null
+          ? DateTime.tryParse(json['recalled_at'] as String)
+          : null,
+      recallReason: json['recall_reason'] as String?,
       notes: json['notes'] as String?,
       daysToExpiry: json['days_to_expiry'] as int?,
       expiryStatus: json['expiry_status'] as String? ?? 'N/A',
@@ -168,6 +186,8 @@ class PantryItemModel extends Equatable {
       'product_id': productId,
       'product': product?.toJson(),
       'batch_id': batchId,
+      'batch_number': batchNumber,
+      'order_item_id': orderItemId,
       'custom_name': customName,
       'barcode': barcode,
       'quantity': quantity,
@@ -176,6 +196,9 @@ class PantryItemModel extends Equatable {
       'expiry_date': expiryDate?.toIso8601String().split('T').first,
       'storage_location': storageLocation,
       'status': status,
+      'is_recalled': isRecalled,
+      'recalled_at': recalledAt?.toIso8601String(),
+      'recall_reason': recallReason,
       'notes': notes,
       'days_to_expiry': daysToExpiry,
       'expiry_status': expiryStatus,
@@ -190,6 +213,8 @@ class PantryItemModel extends Equatable {
     String? productId,
     ProductSummaryModel? product,
     String? batchId,
+    String? batchNumber,
+    String? orderItemId,
     String? customName,
     String? barcode,
     double? quantity,
@@ -198,6 +223,9 @@ class PantryItemModel extends Equatable {
     DateTime? expiryDate,
     String? storageLocation,
     String? status,
+    bool? isRecalled,
+    DateTime? recalledAt,
+    String? recallReason,
     String? notes,
     int? daysToExpiry,
     String? expiryStatus,
@@ -210,6 +238,8 @@ class PantryItemModel extends Equatable {
       productId: productId ?? this.productId,
       product: product ?? this.product,
       batchId: batchId ?? this.batchId,
+      batchNumber: batchNumber ?? this.batchNumber,
+      orderItemId: orderItemId ?? this.orderItemId,
       customName: customName ?? this.customName,
       barcode: barcode ?? this.barcode,
       quantity: quantity ?? this.quantity,
@@ -218,6 +248,9 @@ class PantryItemModel extends Equatable {
       expiryDate: expiryDate ?? this.expiryDate,
       storageLocation: storageLocation ?? this.storageLocation,
       status: status ?? this.status,
+      isRecalled: isRecalled ?? this.isRecalled,
+      recalledAt: recalledAt ?? this.recalledAt,
+      recallReason: recallReason ?? this.recallReason,
       notes: notes ?? this.notes,
       daysToExpiry: daysToExpiry ?? this.daysToExpiry,
       expiryStatus: expiryStatus ?? this.expiryStatus,
@@ -233,6 +266,8 @@ class PantryItemModel extends Equatable {
         productId,
         product,
         batchId,
+        batchNumber,
+        orderItemId,
         customName,
         barcode,
         quantity,
@@ -241,6 +276,9 @@ class PantryItemModel extends Equatable {
         expiryDate,
         storageLocation,
         status,
+        isRecalled,
+        recalledAt,
+        recallReason,
         notes,
         daysToExpiry,
         expiryStatus,

@@ -28,6 +28,9 @@ class Batch(Base, UUIDMixin, TimestampMixin):
     status = Column(String(30), nullable=False, default="active") # active, expired, depleted, recalled
     notes = Column(Text, nullable=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    recalled_at = Column(DateTime(timezone=True), nullable=True)
+    recall_reason = Column(Text, nullable=True)
+    recalled_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     product = relationship("Product", back_populates="batches")
     supplier = relationship("Supplier", back_populates="batches")

@@ -33,6 +33,7 @@ class PantryItem(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
     pantry_id = Column(UUID(as_uuid=True), ForeignKey("consumer_pantries.id"), nullable=False, index=True)
     product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=True, index=True)
     batch_id = Column(UUID(as_uuid=True), ForeignKey("batches.id"), nullable=True, index=True)
+    order_item_id = Column(UUID(as_uuid=True), ForeignKey("order_items.id", ondelete="SET NULL"), nullable=True, index=True)
     custom_name = Column(String(255), nullable=True)
     barcode = Column(String(100), nullable=True, index=True)
     quantity = Column(Numeric(10, 2), nullable=False, default=1.0)
@@ -41,11 +42,15 @@ class PantryItem(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
     expiry_date = Column(Date, nullable=True, index=True)
     storage_location = Column(String(50), nullable=False, default="pantry") # 'pantry', 'fridge', 'freezer'
     status = Column(String(30), nullable=False, default="active", index=True) # 'active', 'consumed', 'discarded', 'expired'
+    is_recalled = Column(Boolean, nullable=False, default=False, index=True)
+    recalled_at = Column(DateTime(timezone=True), nullable=True)
+    recall_reason = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
 
     pantry = relationship("ConsumerPantry", back_populates="items")
     product = relationship("Product")
     batch = relationship("Batch")
+    order_item = relationship("OrderItem")
     logs = relationship("PantryItemLog", back_populates="pantry_item", cascade="all, delete-orphan")
 
 

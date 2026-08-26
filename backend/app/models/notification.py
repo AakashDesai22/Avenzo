@@ -3,7 +3,7 @@ AVENZO Backend — Notification Models
 ORM entities for user preferences, registered consumer devices, and server-side notification records.
 """
 
-from sqlalchemy import Column, String, ForeignKey, Text, Boolean, DateTime, UniqueConstraint
+from sqlalchemy import Column, String, ForeignKey, Text, Boolean, DateTime, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -50,13 +50,18 @@ class ConsumerDevice(Base, UUIDMixin, TimestampMixin):
 class NotificationRecord(Base, UUIDMixin, TimestampMixin):
     """Server-side notification event persistence log and lifecycle tracking."""
     __tablename__ = "notification_records"
+    __table_args__ = (
+        Index("ix_notification_user_type_ref", "user_id", "notification_type", "reference_type", "reference_id"),
+    )
 
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     notification_type = Column(String(50), nullable=False, index=True)
-    # Types: EXPIRY_7_DAY, EXPIRY_3_DAY, EXPIRY_TODAY, PRODUCT_EXPIRED, PANTRY_UPDATE, RECOMMENDATION, SYSTEM
+    # Types: EXPIRY_7_DAY, EXPIRY_3_DAY, EXPIRY_TODAY, PRODUCT_EXPIRED, PANTRY_UPDATE, RECOMMENDATION, SYSTEM, BATCH_RECALL
     title = Column(String(255), nullable=False)
     body = Column(Text, nullable=False)
     payload_json = Column(Text, nullable=True)
+    reference_type = Column(String(50), nullable=True, index=True)
+    reference_id = Column(UUID(as_uuid=True), nullable=True, index=True)
     status = Column(String(30), nullable=False, default="CREATED", index=True)
     # Statuses: CREATED, SCHEDULED, SENT, DELIVERED, READ, FAILED
     is_read = Column(Boolean, nullable=False, default=False, index=True)

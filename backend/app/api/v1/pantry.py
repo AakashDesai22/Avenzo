@@ -72,6 +72,18 @@ async def list_expiring_pantry_items(
     return ApiResponse(success=True, data=items)
 
 
+@router.get("/recalls", response_model=ApiResponse[List[PantryItemRead]])
+async def list_recalled_pantry_items(
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List consumer's pantry items marked as recalled (is_recalled == True).
+    """
+    items = await pantry_service.list_recalled_pantry_items(session, user_id=current_user.id)
+    return ApiResponse(success=True, data=items)
+
+
 @router.get("/{item_id}", response_model=ApiResponse[PantryItemRead])
 async def get_pantry_item(
     item_id: UUID,

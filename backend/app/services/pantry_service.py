@@ -69,7 +69,7 @@ async def get_pantry_item(session: AsyncSession, user_id: UUID, item_id: UUID) -
 
 
 def _enrich_item_read(item: PantryItem) -> PantryItemRead:
-    """Enriches PantryItem model into PantryItemRead DTO with derived DTE and status."""
+    """Enriches PantryItem model into PantryItemRead DTO with derived DTE, status, and batch number."""
     has_exp = True
     if item.product and not item.product.has_expiry:
         has_exp = False
@@ -80,7 +80,32 @@ def _enrich_item_read(item: PantryItem) -> PantryItemRead:
     dto = PantryItemRead.model_validate(item)
     dto.days_to_expiry = dte
     dto.expiry_status = exp_status
+    if item.batch and not dto.batch_number:
+        dto.batch_number = item.batch.batch_number
     return dto
+
+
+async def list_recalled_pantry_items(session: AsyncSession, user_id: UUID) -> List[PantryItemRead]:
+    """Lists consumer's pantry items marked as recalled (is_recalled == True)."""
+    stmt = (
+        select(PantryItem)
+        .options(
+            joinedload(PantryItem.product).joinedload(Product.category),
+            joinedload(PantryItem.product).joinedload(Product.brand),
+            joinedload(PantryItem.batch),
+        )
+        .join(ConsumerPantry)
+        .where(
+            ConsumerPantry.user_id == user_id,
+            PantryItem.is_deleted == False,
+            PantryItem.is_recalled == True,
+        )
+        .order_by(PantryItem.recalled_at.desc().nulls_last())
+    )
+
+    res = await session.execute(stmt)
+    items = res.scalars().unique().all()
+    return [_enrich_item_read(item) for item in items]
 
 
 async def create_pantry_item(
@@ -314,7 +339,8 @@ async def list_expiring_pantry_items(session: AsyncSession, user_id: UUID) -> Li
     stmt = (
         select(PantryItem)
         .options(
-            joinedload(PantryItem.product),
+            joinedload(PantryItem.product).joinedload(Product.category),
+            joinedload(PantryItem.product).joinedload(Product.brand),
             joinedload(PantryItem.batch),
         )
         .join(ConsumerPantry)

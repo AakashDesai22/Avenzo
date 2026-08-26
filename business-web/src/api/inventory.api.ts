@@ -54,3 +54,28 @@ export async function getInventoryTransactionsApi(params?: {
 }): Promise<ApiResponse<InventoryTransaction[]>> {
   return apiGet<InventoryTransaction[]>('/inventory/transactions', params);
 }
+
+export interface BatchRecallImpact {
+  batch_id: string;
+  batch_number: string;
+  product_id: string;
+  product_name: string;
+  is_already_recalled: boolean;
+  affected_orders_count: number;
+  affected_consumers_count: number;
+  affected_pantry_items_count: number;
+  notifications_sent_count: number;
+  recalled_at?: string;
+  recall_reason?: string;
+}
+
+export async function getBatchRecallImpactApi(batchId: string): Promise<ApiResponse<BatchRecallImpact>> {
+  return apiGet<BatchRecallImpact>(`/batches/${batchId}/recall-impact`);
+}
+
+export async function recallBatchApi(
+  batchId: string,
+  data: { recall_reason: string; severity?: string }
+): Promise<ApiResponse<BatchRecallImpact>> {
+  return apiPost<BatchRecallImpact>(`/batches/${batchId}/recall`, data);
+}

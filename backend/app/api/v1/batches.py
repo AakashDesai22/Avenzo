@@ -12,8 +12,9 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_roles
 from app.models.user import User
 from app.schemas.batch import BatchCreate, BatchRead, BatchUpdate
+from app.schemas.recall import BatchRecallRequest, BatchRecallImpactResponse
 from app.schemas.common import ApiResponse
-from app.services import batch_service
+from app.services import batch_service, recall_service
 
 router = APIRouter(prefix="/batches", tags=["Batches"])
 
@@ -46,6 +47,39 @@ async def get_batch(
     """
     batch = await batch_service.get_batch_by_id(session, batch_id)
     return ApiResponse(success=True, data=BatchRead.model_validate(batch))
+
+
+@router.get("/{batch_id}/recall-impact", response_model=ApiResponse[BatchRecallImpactResponse])
+async def preview_batch_recall_impact(
+    batch_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(["ADMIN", "BUSINESS_MANAGER", "STAFF"])),
+):
+    """
+    Preview batch recall impact (affected orders, consumers, and pantry items).
+    Available to Admin, Business Manager, and Staff.
+    """
+    impact = await recall_service.calculate_recall_impact(session, batch_id)
+    return ApiResponse(success=True, data=impact)
+
+
+@router.post("/{batch_id}/recall", response_model=ApiResponse[BatchRecallImpactResponse])
+async def recall_batch(
+    batch_id: UUID,
+    data: BatchRecallRequest,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(["ADMIN", "BUSINESS_MANAGER"])),
+):
+    """
+    Execute batch recall operation (Admin and Business Manager only).
+    Marks target batch as recalled, flags affected consumer PantryItems, and dispatches safety push alerts.
+    """
+    impact = await recall_service.recall_batch(session, batch_id, user_id=current_user.id, data=data)
+    return ApiResponse(
+        success=True,
+        data=impact,
+        message="Batch recall initiated successfully.",
+    )
 
 
 @router.post("", response_model=ApiResponse[BatchRead], status_code=status.HTTP_201_CREATED)

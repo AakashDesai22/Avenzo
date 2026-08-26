@@ -19,15 +19,19 @@ import { Badge } from '../components/ui/Badge';
 import { formatDate } from '../utils/formatters';
 import { useAuth } from '../context/AuthContext';
 import { ProductReceivingModal } from '../components/inventory/ProductReceivingModal';
-import { Plus, PackageCheck } from 'lucide-react';
+import { BatchRecallModal } from '../components/inventory/BatchRecallModal';
+import { Plus, PackageCheck, ShieldAlert } from 'lucide-react';
 
 export const BatchesPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const { can } = useAuth();
+  const { can, hasRole } = useAuth();
   const canCreate = can('create_batches');
+  const canRecall = hasRole(['ADMIN', 'BUSINESS_MANAGER']);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isReceivingModalOpen, setIsReceivingModalOpen] = useState(false);
+  const [isRecallModalOpen, setIsRecallModalOpen] = useState(false);
+  const [selectedRecallBatch, setSelectedRecallBatch] = useState<Batch | null>(null);
 
   // Form states for manual batch creation
   const [productId, setProductId] = useState('');
@@ -106,7 +110,11 @@ export const BatchesPage: React.FC = () => {
     });
   };
 
-  const getDteStatus = (expDate?: string) => {
+  const getDteStatus = (batch: Batch) => {
+    if (batch.status === 'recalled') {
+      return { label: 'RECALLED', variant: 'danger' as const, dte: 'SAFETY RECALL' };
+    }
+    const expDate = batch.expiry_date;
     if (!expDate) return { label: 'SAFE', variant: 'success' as const, dte: 'N/A' };
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -120,6 +128,11 @@ export const BatchesPage: React.FC = () => {
     return { label: 'SAFE', variant: 'success' as const, dte: `${diffDays}d left` };
   };
 
+  const handleOpenRecallModal = (batch: Batch) => {
+    setSelectedRecallBatch(batch);
+    setIsRecallModalOpen(true);
+  };
+
   const columns: Column<Batch>[] = [
     { key: 'batch_number', header: 'Batch Number', render: (b) => <span style={{ fontWeight: 600 }}>{b.batch_number}</span> },
     { key: 'product', header: 'Product Name', render: (b) => b.product?.name || 'N/A' },
@@ -131,7 +144,7 @@ export const BatchesPage: React.FC = () => {
       key: 'dte',
       header: 'Expiry Status (DTE)',
       render: (b) => {
-        const dteInfo = getDteStatus(b.expiry_date);
+        const dteInfo = getDteStatus(b);
         return (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
             <Badge status={dteInfo.label} />
@@ -141,6 +154,30 @@ export const BatchesPage: React.FC = () => {
       },
     },
     { key: 'initial_quantity', header: 'Initial Qty', render: (b) => b.initial_quantity.toLocaleString() },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (b) => {
+        if (b.status === 'recalled') {
+          return (
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#991b1b', backgroundColor: '#fef2f2', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>
+              RECALLED
+            </span>
+          );
+        }
+        if (!canRecall) return null;
+        return (
+          <Button
+            size="sm"
+            variant="danger"
+            onClick={() => handleOpenRecallModal(b)}
+            style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', backgroundColor: '#991b1b' }}
+          >
+            <ShieldAlert size={14} style={{ marginRight: '0.25rem' }} /> Recall
+          </Button>
+        );
+      },
+    },
   ];
 
   return (
@@ -231,6 +268,17 @@ export const BatchesPage: React.FC = () => {
 
       {/* Guided Receiving Workflow Modal */}
       <ProductReceivingModal isOpen={isReceivingModalOpen} onClose={() => setIsReceivingModalOpen(false)} />
+
+      {/* Batch Safety Recall Modal */}
+      <BatchRecallModal
+        isOpen={isRecallModalOpen}
+        onClose={() => setIsRecallModalOpen(false)}
+        batch={selectedRecallBatch}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['batches'] });
+          queryClient.invalidateQueries({ queryKey: ['inventory'] });
+        }}
+      />
     </div>
   );
 };

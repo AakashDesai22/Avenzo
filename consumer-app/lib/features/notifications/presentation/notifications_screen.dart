@@ -8,6 +8,8 @@ class NotificationsScreen extends ConsumerWidget {
 
   IconData _getTypeIcon(String type) {
     switch (type.toUpperCase()) {
+      case 'BATCH_RECALL':
+        return Icons.security_rounded;
       case 'EXPIRY_7_DAY':
       case 'EXPIRY_3_DAY':
       case 'EXPIRY_TODAY':
@@ -26,6 +28,8 @@ class NotificationsScreen extends ConsumerWidget {
 
   Color _getTypeColor(String type) {
     switch (type.toUpperCase()) {
+      case 'BATCH_RECALL':
+        return const Color(0xFF991B1B);
       case 'EXPIRY_TODAY':
       case 'PRODUCT_EXPIRED':
         return Colors.red.shade700;

@@ -17,6 +17,7 @@ from app.core.date_utils import get_business_date
 from app.models.order import Order, OrderItem
 from app.models.order_allocation import OrderBatchAllocation
 from app.models.inventory import Inventory, Batch, InventoryTransaction
+from app.models.pantry import ConsumerPantry, PantryItem, PantryItemLog
 from app.models.product import Product
 from app.schemas.order import OrderRead, OrderItemRead
 from app.schemas.order_allocation import OrderBatchAllocationRead
@@ -320,7 +321,10 @@ async def dispatch_order(session: AsyncSession, order_id: UUID) -> OrderRead:
 
 
 async def deliver_order(session: AsyncSession, order_id: UUID) -> OrderRead:
-    """Transitions order from SHIPPED -> DELIVERED."""
+    """
+    Transitions order from SHIPPED -> DELIVERED and synchronously creates consumer PantryItems
+    from exact OrderBatchAllocation records within the same database transaction.
+    """
     order = await _get_locked_order(session, order_id)
     if order.status != "SHIPPED":
         raise HTTPException(
@@ -328,12 +332,58 @@ async def deliver_order(session: AsyncSession, order_id: UUID) -> OrderRead:
             detail=f"Cannot deliver order with status '{order.status}'. Order must be SHIPPED.",
         )
 
+    # Get or create consumer's default home pantry
+    pantry_stmt = select(ConsumerPantry).where(
+        ConsumerPantry.user_id == order.user_id, ConsumerPantry.is_default == True
+    )
+    pantry_res = await session.execute(pantry_stmt)
+    pantry = pantry_res.scalars().first()
+    if not pantry:
+        pantry = ConsumerPantry(
+            user_id=order.user_id,
+            name="My Home Pantry",
+            is_default=True,
+        )
+        session.add(pantry)
+        await session.flush()
+
     for item in order.items:
         item.fulfillment_status = "DELIVERED"
+        u_measure = item.product.unit_of_measure if (item.product and item.product.unit_of_measure) else "units"
+        for alloc in item.allocations:
+            # Idempotency check: verify whether PantryItem already exists for this (pantry_id, order_item_id, batch_id)
+            chk_stmt = select(PantryItem).where(
+                PantryItem.pantry_id == pantry.id,
+                PantryItem.order_item_id == item.id,
+                PantryItem.batch_id == alloc.batch_id,
+            )
+            chk_res = await session.execute(chk_stmt)
+            if not chk_res.scalars().first():
+                b_expiry = alloc.batch.expiry_date if alloc.batch else None
+                pantry_item = PantryItem(
+                    pantry_id=pantry.id,
+                    product_id=alloc.product_id,
+                    batch_id=alloc.batch_id,
+                    order_item_id=item.id,
+                    quantity=alloc.allocated_quantity,
+                    unit=u_measure,
+                    purchase_date=get_business_date(),
+                    expiry_date=b_expiry,
+                    storage_location="pantry",
+                    status="active",
+                )
+                session.add(pantry_item)
+                await session.flush()
+                session.add(
+                    PantryItemLog(
+                        pantry_item_id=pantry_item.id,
+                        action="SYNCED_FROM_ORDER",
+                        quantity_change=alloc.allocated_quantity,
+                    )
+                )
 
     order.status = "DELIVERED"
     await session.commit()
-    session.expire_all()
     reloaded = await _get_locked_order(session, order_id)
     return build_fulfillment_order_read(reloaded)
 
