@@ -82,22 +82,15 @@ async def list_marketplace_products(
     """
     business_date = get_business_date()
 
-    # Base query for active, non-deleted products
-    stmt = (
-        select(Product)
-        .options(
-            joinedload(Product.category),
-            joinedload(Product.brand),
-        )
-        .where(Product.is_active == True, Product.is_deleted == False)
-    )
+    # Base filter conditions for active, non-deleted products
+    filters = [Product.is_active == True, Product.is_deleted == False]
 
     if category_id:
-        stmt = stmt.where(Product.category_id == category_id)
+        filters.append(Product.category_id == category_id)
 
     if search:
         search_pattern = f"%{search}%"
-        stmt = stmt.where(
+        filters.append(
             or_(
                 Product.name.ilike(search_pattern),
                 Product.sku.ilike(search_pattern),
@@ -105,13 +98,23 @@ async def list_marketplace_products(
             )
         )
 
-    # Count total matching products
-    count_stmt = select(func.count()).select_from(stmt.subquery())
+    # Count total matching products cleanly without subquery/joinedload option pollution
+    count_stmt = select(func.count(Product.id)).where(*filters)
     total_result = await session.execute(count_stmt)
     total = total_result.scalar_one()
 
-    # Execute main product fetch
-    stmt = stmt.order_by(Product.name.asc()).offset(skip).limit(limit)
+    # Execute main product fetch with eager joined relationships
+    stmt = (
+        select(Product)
+        .options(
+            joinedload(Product.category),
+            joinedload(Product.brand),
+        )
+        .where(*filters)
+        .order_by(Product.name.asc())
+        .offset(skip)
+        .limit(limit)
+    )
     result = await session.execute(stmt)
     products = result.scalars().unique().all()
 
