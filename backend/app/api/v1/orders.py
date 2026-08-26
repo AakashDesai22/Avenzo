@@ -5,7 +5,7 @@ Provides consumer checkout, order history, and order detail endpoints.
 
 from typing import List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, Header, status
+from fastapi import APIRouter, Depends, Header, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -41,6 +41,17 @@ async def checkout_order(
     )
 
 
+@router.get("", response_model=ApiResponse[List[OrderRead]])
+async def list_all_orders_endpoint(
+    status_filter: Optional[str] = Query(None, alias="status", description="Optional status filter"),
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(["ADMIN", "BUSINESS_MANAGER", "STAFF"])),
+):
+    """List operational consumer orders across all users (ADMIN, BUSINESS_MANAGER, STAFF)."""
+    orders = await fulfillment_service.list_all_orders(session, status_filter=status_filter)
+    return ApiResponse(success=True, data=orders)
+
+
 @router.get("/my", response_model=ApiResponse[List[OrderRead]])
 async def list_my_orders(
     session: AsyncSession = Depends(get_db),
@@ -59,6 +70,17 @@ async def get_my_order_detail(
 ):
     """Get detailed consumer order view by ID."""
     order = await checkout_service.get_order_by_id(session, order_id, current_user.id)
+    return ApiResponse(success=True, data=order)
+
+
+@router.get("/{order_id}", response_model=ApiResponse[OrderRead])
+async def get_business_order_detail_endpoint(
+    order_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(["ADMIN", "BUSINESS_MANAGER", "STAFF"])),
+):
+    """Get operational order detail view by ID for business roles (ADMIN, BUSINESS_MANAGER, STAFF)."""
+    order = await fulfillment_service.get_business_order_by_id(session, order_id)
     return ApiResponse(success=True, data=order)
 
 

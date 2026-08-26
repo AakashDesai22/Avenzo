@@ -363,3 +363,66 @@ async def test_staff_cannot_trigger_fulfillment_mutations(
     # But STAFF CAN read allocations
     res_alloc = await client.get(f"/api/v1/orders/{order_id}/allocations", headers=staff_headers)
     assert res_alloc.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_business_list_all_orders_admin_manager_staff(
+    client: AsyncClient, db_session: AsyncSession, consumer_headers: dict, manager_headers: dict, staff_headers: dict
+):
+    """ADMIN, BUSINESS_MANAGER, and STAFF can query the business order queue, but CONSUMER cannot."""
+    order_data, _, _, _ = await _create_test_order_helper(client, db_session, consumer_headers, qty=2)
+    order_id = order_data["id"]
+
+    # Manager can list orders
+    res_mgr = await client.get("/api/v1/orders", headers=manager_headers)
+    assert res_mgr.status_code == 200
+    assert len(res_mgr.json()["data"]) >= 1
+
+    # Staff can list orders
+    res_staff = await client.get("/api/v1/orders", headers=staff_headers)
+    assert res_staff.status_code == 200
+    assert len(res_staff.json()["data"]) >= 1
+
+    # Consumer cannot use business order list (403 Forbidden)
+    res_cons = await client.get("/api/v1/orders", headers=consumer_headers)
+    assert res_cons.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_business_list_orders_status_filter(
+    client: AsyncClient, db_session: AsyncSession, consumer_headers: dict, manager_headers: dict
+):
+    """Business order list supports status filtering."""
+    order_data, _, _, _ = await _create_test_order_helper(client, db_session, consumer_headers, qty=2)
+    order_id = order_data["id"]
+
+    # Pending filter
+    res_pending = await client.get("/api/v1/orders?status=PENDING", headers=manager_headers)
+    assert res_pending.status_code == 200
+    assert any(o["id"] == order_id for o in res_pending.json()["data"])
+
+    # Confirm order
+    await client.post(f"/api/v1/orders/{order_id}/confirm", headers=manager_headers)
+
+    # Pending filter no longer contains order
+    res_pending_after = await client.get("/api/v1/orders?status=PENDING", headers=manager_headers)
+    assert not any(o["id"] == order_id for o in res_pending_after.json()["data"])
+
+    # Confirmed filter contains order
+    res_confirmed = await client.get("/api/v1/orders?status=CONFIRMED", headers=manager_headers)
+    assert res_confirmed.status_code == 200
+    assert any(o["id"] == order_id for o in res_confirmed.json()["data"])
+
+
+@pytest.mark.asyncio
+async def test_business_get_order_by_id(
+    client: AsyncClient, db_session: AsyncSession, consumer_headers: dict, staff_headers: dict
+):
+    """Business roles can get detailed order view by ID."""
+    order_data, _, _, _ = await _create_test_order_helper(client, db_session, consumer_headers, qty=2)
+    order_id = order_data["id"]
+
+    res = await client.get(f"/api/v1/orders/{order_id}", headers=staff_headers)
+    assert res.status_code == 200
+    assert res.json()["data"]["id"] == order_id
+    assert res.json()["data"]["status"] == "PENDING"

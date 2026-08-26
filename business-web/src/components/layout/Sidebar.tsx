@@ -7,6 +7,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
+  ShoppingBag,
   Package,
   Tags,
   Layers,
@@ -37,6 +38,12 @@ export const Sidebar: React.FC = () => {
       label: 'Dashboard',
       path: '/dashboard',
       icon: LayoutDashboard,
+      roles: ['ADMIN', 'BUSINESS_MANAGER', 'STAFF'],
+    },
+    {
+      label: 'Orders',
+      path: '/orders',
+      icon: ShoppingBag,
       roles: ['ADMIN', 'BUSINESS_MANAGER', 'STAFF'],
     },
     {

@@ -478,3 +478,30 @@ async def get_order_allocations(
         )
         for a in allocs
     ]
+
+
+async def list_all_orders(session: AsyncSession, status_filter: Optional[str] = None) -> List[OrderRead]:
+    """Lists operational orders for business roles with optional status filter."""
+    stmt = (
+        select(Order)
+        .options(
+            joinedload(Order.items).joinedload(OrderItem.product).joinedload(Product.category),
+            joinedload(Order.items).joinedload(OrderItem.product).joinedload(Product.brand),
+            joinedload(Order.items).joinedload(OrderItem.allocations).joinedload(OrderBatchAllocation.batch),
+        )
+        .where(Order.is_deleted == False)
+    )
+
+    if status_filter:
+        stmt = stmt.where(Order.status == status_filter.upper())
+
+    stmt = stmt.order_by(Order.created_at.desc())
+    res = await session.execute(stmt)
+    orders = res.scalars().unique().all()
+    return [build_fulfillment_order_read(order) for order in orders]
+
+
+async def get_business_order_by_id(session: AsyncSession, order_id: UUID) -> OrderRead:
+    """Gets business order detail view by ID."""
+    order = await _get_locked_order(session, order_id)
+    return build_fulfillment_order_read(order)

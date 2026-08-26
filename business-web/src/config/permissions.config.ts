@@ -20,7 +20,9 @@ export type Capability =
   | 'view_financial_risk'
   | 'view_analytics'
   | 'manage_users'
-  | 'view_notifications';
+  | 'view_notifications'
+  | 'view_orders'
+  | 'manage_fulfillment';
 
 export interface RoleConfig {
   roleName: UserRoleName;
@@ -40,6 +42,7 @@ export const ROLE_CONFIGS: Record<UserRoleName, RoleConfig> = {
     description: 'Full administrative access, user management, and system governance.',
     allowedRoutes: [
       '/dashboard',
+      '/orders',
       '/products',
       '/categories',
       '/inventory',
@@ -53,6 +56,8 @@ export const ROLE_CONFIGS: Record<UserRoleName, RoleConfig> = {
     ],
     capabilities: [
       'view_dashboard',
+      'view_orders',
+      'manage_fulfillment',
       'view_products',
       'manage_products',
       'manage_categories',
@@ -74,6 +79,7 @@ export const ROLE_CONFIGS: Record<UserRoleName, RoleConfig> = {
     description: 'Receiving oversight, batch recording, inventory adjustments, and risk management.',
     allowedRoutes: [
       '/dashboard',
+      '/orders',
       '/products',
       '/categories',
       '/inventory',
@@ -85,6 +91,8 @@ export const ROLE_CONFIGS: Record<UserRoleName, RoleConfig> = {
     ],
     capabilities: [
       'view_dashboard',
+      'view_orders',
+      'manage_fulfillment',
       'view_products',
       'manage_products',
       'manage_categories',
@@ -104,6 +112,7 @@ export const ROLE_CONFIGS: Record<UserRoleName, RoleConfig> = {
     description: 'Read-only operational monitoring, FEFO analysis, and waste metrics forecasting.',
     allowedRoutes: [
       '/dashboard',
+      '/orders',
       '/inventory',
       '/batches',
       '/warehouses',
@@ -114,6 +123,7 @@ export const ROLE_CONFIGS: Record<UserRoleName, RoleConfig> = {
     ],
     capabilities: [
       'view_dashboard',
+      'view_orders',
       'view_products',
       'view_inventory',
       'view_batches',
