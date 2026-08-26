@@ -180,6 +180,59 @@ class HomeDashboardScreen extends ConsumerWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 24),
+
+            // Marketplace & Shopping Header
+            const Text(
+              'Consumer Marketplace',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            Row(
+              children: [
+                Expanded(
+                  child: _QuickActionCard(
+                    title: 'Marketplace',
+                    subtitle: 'Shop Fresh Items',
+                    icon: Icons.storefront_rounded,
+                    color: AppColors.primary,
+                    onTap: () => context.push('/marketplace'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _QuickActionCard(
+                    title: 'My Cart',
+                    subtitle: 'View Items',
+                    icon: Icons.shopping_cart_rounded,
+                    color: AppColors.secondary,
+                    onTap: () => context.push('/cart'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            Row(
+              children: [
+                Expanded(
+                  child: _QuickActionCard(
+                    title: 'My Orders',
+                    subtitle: 'Track Deliveries',
+                    icon: Icons.receipt_long_rounded,
+                    color: Colors.purple,
+                    onTap: () => context.push('/orders/my'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(child: SizedBox()),
+              ],
+            ),
             const SizedBox(height: 28),
 
             // Household Waste Awareness Banner

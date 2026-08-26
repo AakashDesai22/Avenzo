@@ -6,12 +6,19 @@ import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/register_screen.dart';
 import '../features/auth/presentation/splash_screen.dart';
 import '../features/auth/providers/auth_provider.dart';
+import '../features/cart/presentation/cart_screen.dart';
+import '../features/checkout/presentation/checkout_screen.dart';
+import '../features/checkout/presentation/order_confirmation_screen.dart';
 import '../features/expiry/presentation/expiry_screen_shell.dart';
 import '../features/home/presentation/bottom_nav_shell.dart';
 import '../features/home/presentation/home_dashboard_screen.dart';
-import '../features/pantry/presentation/pantry_screen.dart';
-import '../features/notifications/presentation/notifications_screen.dart';
+import '../features/marketplace/presentation/marketplace_screen.dart';
+import '../features/marketplace/presentation/product_detail_screen.dart';
 import '../features/notifications/presentation/notification_preferences_screen.dart';
+import '../features/notifications/presentation/notifications_screen.dart';
+import '../features/orders/presentation/consumer_order_detail_screen.dart';
+import '../features/orders/presentation/consumer_order_history_screen.dart';
+import '../features/pantry/presentation/pantry_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/recommendations/presentation/recommendations_screen.dart';
 import '../features/scanner/presentation/scanner_screen.dart';
@@ -76,6 +83,47 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/notifications/preferences',
         builder: (context, state) => const NotificationPreferencesScreen(),
+      ),
+
+      // ----------------------------------------------------------------------
+      // PHASE 10E: CONSUMER MARKETPLACE, CART, CHECKOUT & ORDERS ROUTES
+      // ----------------------------------------------------------------------
+      GoRoute(
+        path: '/marketplace',
+        builder: (context, state) => const MarketplaceScreen(),
+      ),
+      GoRoute(
+        path: '/marketplace/product/:id',
+        builder: (context, state) {
+          final productId = state.pathParameters['id']!;
+          return ProductDetailScreen(productId: productId);
+        },
+      ),
+      GoRoute(
+        path: '/cart',
+        builder: (context, state) => const CartScreen(),
+      ),
+      GoRoute(
+        path: '/checkout',
+        builder: (context, state) => const CheckoutScreen(),
+      ),
+      GoRoute(
+        path: '/order-confirmation/:id',
+        builder: (context, state) {
+          final orderId = state.pathParameters['id']!;
+          return OrderConfirmationScreen(orderId: orderId);
+        },
+      ),
+      GoRoute(
+        path: '/orders/my',
+        builder: (context, state) => const ConsumerOrderHistoryScreen(),
+      ),
+      GoRoute(
+        path: '/orders/my/:id',
+        builder: (context, state) {
+          final orderId = state.pathParameters['id']!;
+          return ConsumerOrderDetailScreen(orderId: orderId);
+        },
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
