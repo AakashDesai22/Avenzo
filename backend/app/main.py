@@ -26,6 +26,8 @@ from app.api.v1 import (
     recommendations,
     notifications,
     marketplace,
+    cart,
+    orders,
     internal,
 )
 
@@ -103,6 +105,8 @@ def create_app() -> FastAPI:
     app.include_router(recommendations.router, prefix="/api/v1")
     app.include_router(notifications.router, prefix="/api/v1")
     app.include_router(marketplace.router, prefix="/api/v1")
+    app.include_router(cart.router, prefix="/api/v1")
+    app.include_router(orders.router, prefix="/api/v1")
     app.include_router(internal.router, prefix="/api/v1")
 
     return app

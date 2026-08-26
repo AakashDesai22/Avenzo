@@ -13,6 +13,8 @@ from app.models.inventory import Batch, Inventory, InventoryTransaction
 from app.models.pantry import ConsumerPantry, PantryItem, PantryItemLog
 from app.models.recommendation import ConsumerRecommendation
 from app.models.notification import NotificationPreference, ConsumerDevice, NotificationRecord
+from app.models.cart import Cart, CartItem
+from app.models.order import Order, OrderItem
 
 __all__ = [
     "Base",
@@ -39,4 +41,8 @@ __all__ = [
     "NotificationPreference",
     "ConsumerDevice",
     "NotificationRecord",
+    "Cart",
+    "CartItem",
+    "Order",
+    "OrderItem",
 ]
