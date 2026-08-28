@@ -1,7 +1,7 @@
 """
 AVENZO Backend — Safe Production Migration Bootstrap Utility
 Detects existing database schema baselines asynchronously using the asyncpg/aiosqlite driver
-and safely executes Alembic migrations without requiring psycopg2 or causing data loss.
+and safely executes Alembic migrations without requiring psycopg2 or causing nested event loop errors.
 """
 
 import sys
@@ -33,6 +33,7 @@ async def inspect_and_detect_baseline(url: str) -> Tuple[str, Optional[str]]:
     """
     Asynchronously inspects existing database tables and columns using run_sync
     to determine if a historical Alembic migration baseline needs to be stamped.
+    The async engine is guaranteed to be disposed before returning.
     """
     async_url = normalize_async_url(url)
     engine = create_async_engine(async_url, pool_pre_ping=True)
@@ -84,14 +85,17 @@ async def inspect_and_detect_baseline(url: str) -> Tuple[str, Optional[str]]:
         await engine.dispose()
 
 
-async def run_bootstrap() -> None:
+def run_bootstrap() -> None:
     """
-    Main async migration bootstrap routine called prior to API server startup.
+    Main synchronous migration bootstrap routine called prior to API server startup.
+    Executes async schema inspection inside a dedicated asyncio.run() block, ensuring
+    the event loop is fully closed before Alembic commands are invoked.
     """
     url = settings.DATABASE_URL
     logger.info("[AVENZO MIGRATION BOOTSTRAP] Evaluating database schema state using async engine...")
 
-    status, revision = await inspect_and_detect_baseline(url)
+    # Dedicated async execution block for schema inspection ONLY
+    status, revision = asyncio.run(inspect_and_detect_baseline(url))
     logger.info(f"[AVENZO MIGRATION BOOTSTRAP] Baseline inspection status: {status}, Revision: {revision}")
 
     alembic_cfg = Config("alembic.ini")
@@ -115,7 +119,7 @@ async def run_bootstrap() -> None:
 
 
 def main() -> None:
-    asyncio.run(run_bootstrap())
+    run_bootstrap()
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 """
 AVENZO Backend — Unit Tests for Production Migration Bootstrap Utility
 Validates safe baseline detection, legacy database stamping, empty database migration,
-asyncpg URL normalization, and unmatched schema failure handling.
+asyncpg URL normalization, and event loop isolation preventing nested asyncio.run errors.
 """
 
 import pytest
@@ -9,8 +9,11 @@ import asyncio
 import os
 import tempfile
 import sqlalchemy as sa
+from unittest.mock import patch
 from sqlalchemy import create_engine, text
-from app.core.migration_bootstrap import inspect_and_detect_baseline, normalize_async_url
+from alembic.config import Config
+from alembic import command
+from app.core.migration_bootstrap import inspect_and_detect_baseline, run_bootstrap, normalize_async_url
 
 
 def test_url_normalization_asyncpg():
@@ -37,7 +40,7 @@ def test_scenario_a_empty_database():
             os.remove(db_path)
 
 
-def test_scenario_b_legacy_database_detection_and_stamping():
+def test_scenario_b_legacy_database_detection():
     """Scenario B: Legacy database with notification tables detects revision 6a0199b8d4e2."""
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
         db_path = tmp.name
@@ -108,3 +111,31 @@ def test_scenario_d_unmatched_schema():
     finally:
         if os.path.exists(db_path):
             os.remove(db_path)
+
+
+def test_no_running_event_loop_during_alembic_commands():
+    """Regression Test: Verify command.stamp and command.upgrade run with NO active event loop."""
+    loop_during_stamp = None
+    loop_during_upgrade = None
+
+    def fake_stamp(cfg, rev):
+        nonlocal loop_during_stamp
+        try:
+            loop_during_stamp = asyncio.get_running_loop()
+        except RuntimeError:
+            loop_during_stamp = "NO_LOOP"
+
+    def fake_upgrade(cfg, target):
+        nonlocal loop_during_upgrade
+        try:
+            loop_during_upgrade = asyncio.get_running_loop()
+        except RuntimeError:
+            loop_during_upgrade = "NO_LOOP"
+
+    with patch("alembic.command.stamp", side_effect=fake_stamp), \
+         patch("alembic.command.upgrade", side_effect=fake_upgrade), \
+         patch("app.core.migration_bootstrap.inspect_and_detect_baseline", return_value=("DETECTED_BASELINE", "6a0199b8d4e2")):
+        run_bootstrap()
+
+    assert loop_during_stamp == "NO_LOOP"
+    assert loop_during_upgrade == "NO_LOOP"
