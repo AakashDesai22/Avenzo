@@ -1,15 +1,25 @@
 """
 AVENZO Backend — Unit Tests for Production Migration Bootstrap Utility
 Validates safe baseline detection, legacy database stamping, empty database migration,
-and unmatched schema failure handling.
+asyncpg URL normalization, and unmatched schema failure handling.
 """
 
 import pytest
+import asyncio
 import os
 import tempfile
 import sqlalchemy as sa
 from sqlalchemy import create_engine, text
-from app.core.migration_bootstrap import inspect_and_detect_baseline, run_bootstrap
+from app.core.migration_bootstrap import inspect_and_detect_baseline, normalize_async_url
+
+
+def test_url_normalization_asyncpg():
+    """Verify that postgres:// and postgresql:// URLs normalize to postgresql+asyncpg:// without requiring psycopg2."""
+    assert normalize_async_url("postgres://user:pass@localhost:5432/db") == "postgresql+asyncpg://user:pass@localhost:5432/db"
+    assert normalize_async_url("postgresql://user:pass@localhost:5432/db") == "postgresql+asyncpg://user:pass@localhost:5432/db"
+    assert normalize_async_url("postgresql+asyncpg://user:pass@localhost:5432/db") == "postgresql+asyncpg://user:pass@localhost:5432/db"
+    assert normalize_async_url("sqlite:///avenzo.db") == "sqlite+aiosqlite:///avenzo.db"
+    assert normalize_async_url("sqlite+aiosqlite:///avenzo.db") == "sqlite+aiosqlite:///avenzo.db"
 
 
 def test_scenario_a_empty_database():
@@ -19,7 +29,7 @@ def test_scenario_a_empty_database():
 
     try:
         async_url = f"sqlite+aiosqlite:///{db_path}"
-        status, revision = inspect_and_detect_baseline(async_url)
+        status, revision = asyncio.run(inspect_and_detect_baseline(async_url))
         assert status == "EMPTY_DATABASE"
         assert revision is None
     finally:
@@ -47,7 +57,7 @@ def test_scenario_b_legacy_database_detection_and_stamping():
             conn.execute(text("CREATE TABLE notification_records (id TEXT PRIMARY KEY)"))
         engine.dispose()
 
-        status, revision = inspect_and_detect_baseline(async_url)
+        status, revision = asyncio.run(inspect_and_detect_baseline(async_url))
         assert status == "DETECTED_BASELINE"
         assert revision == "6a0199b8d4e2"
     finally:
@@ -70,7 +80,7 @@ def test_scenario_c_current_database():
             conn.execute(text("INSERT INTO alembic_version VALUES ('a12b34c56d7e')"))
         engine.dispose()
 
-        status, revision = inspect_and_detect_baseline(async_url)
+        status, revision = asyncio.run(inspect_and_detect_baseline(async_url))
         assert status == "ALREADY_STAMPED"
         assert revision == "a12b34c56d7e"
     finally:
@@ -92,7 +102,7 @@ def test_scenario_d_unmatched_schema():
             conn.execute(text("CREATE TABLE unknown_custom_table (id TEXT PRIMARY KEY)"))
         engine.dispose()
 
-        status, revision = inspect_and_detect_baseline(async_url)
+        status, revision = asyncio.run(inspect_and_detect_baseline(async_url))
         assert status == "UNMATCHED_SCHEMA"
         assert revision is None
     finally:
