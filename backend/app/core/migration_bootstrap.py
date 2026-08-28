@@ -1,0 +1,112 @@
+"""
+AVENZO Backend — Safe Production Migration Bootstrap Utility
+Detects existing database schema baselines and safely executes Alembic migrations 
+without data loss or duplicate table creation errors.
+"""
+
+import sys
+import logging
+from sqlalchemy import create_engine, inspect, text
+from alembic.config import Config
+from alembic import command
+from app.core.config import settings
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("migration_bootstrap")
+
+
+def sync_url(url: str) -> str:
+    """Convert async database URL to sync driver URL for inspection and Alembic sync commands."""
+    if url.startswith("sqlite+aiosqlite://"):
+        return url.replace("sqlite+aiosqlite://", "sqlite://", 1)
+    if url.startswith("postgresql+asyncpg://"):
+        return url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql://", 1)
+    return url
+
+
+def inspect_and_detect_baseline(url: str) -> tuple[str, str | None]:
+    """
+    Inspects existing database tables and columns to determine if a historical
+    Alembic migration baseline needs to be stamped.
+    """
+    engine_url = sync_url(url)
+    engine = create_engine(engine_url, pool_pre_ping=True)
+
+    try:
+        with engine.connect() as conn:
+            inspector = inspect(conn)
+            tables = set(inspector.get_table_names())
+
+            # 1. Check if alembic_version table exists and has a record
+            if "alembic_version" in tables:
+                try:
+                    res = conn.execute(text("SELECT version_num FROM alembic_version")).fetchone()
+                    if res and res[0]:
+                        return "ALREADY_STAMPED", res[0]
+                except Exception:
+                    pass
+
+            # 2. Database is completely empty?
+            if not tables or tables == {"alembic_version"}:
+                return "EMPTY_DATABASE", None
+
+            # 3. Existing tables detected — map to highest matching Alembic revision
+            if "pantry_items" in tables:
+                pantry_cols = {c["name"] for c in inspector.get_columns("pantry_items")}
+                if "order_item_id" in pantry_cols:
+                    return "DETECTED_BASELINE", "a12b34c56d7e"
+
+            if "order_batch_allocations" in tables:
+                return "DETECTED_BASELINE", "9d0422eb7b85"
+            if "orders" in tables:
+                return "DETECTED_BASELINE", "8c0311daF6a4"
+            if "carts" in tables:
+                return "DETECTED_BASELINE", "7b0200c9e5f3"
+            if "notification_records" in tables:
+                return "DETECTED_BASELINE", "6a0199b8d4e2"
+            if "consumer_recommendations" in tables:
+                return "DETECTED_BASELINE", "5f0189a7c3e1"
+            if "pantry_items" in tables or "consumer_pantries" in tables:
+                return "DETECTED_BASELINE", "5a0179f8b4d2"
+            if "brands" in tables or "users" in tables:
+                return "DETECTED_BASELINE", "f8fe01bb5199"
+
+            return "UNMATCHED_SCHEMA", None
+    finally:
+        engine.dispose()
+
+
+def run_bootstrap() -> None:
+    """
+    Main migration bootstrap routine called prior to API server startup.
+    """
+    url = settings.DATABASE_URL
+    logger.info("[AVENZO MIGRATION BOOTSTRAP] Evaluating database schema state...")
+
+    status, revision = inspect_and_detect_baseline(url)
+    logger.info(f"[AVENZO MIGRATION BOOTSTRAP] Baseline inspection status: {status}, Revision: {revision}")
+
+    alembic_cfg = Config("alembic.ini")
+    alembic_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+
+    if status == "ALREADY_STAMPED":
+        logger.info(f"[AVENZO MIGRATION BOOTSTRAP] Database already recorded at revision: {revision}")
+    elif status == "EMPTY_DATABASE":
+        logger.info("[AVENZO MIGRATION BOOTSTRAP] Empty database detected. Running full migration chain from HEAD...")
+    elif status == "DETECTED_BASELINE":
+        logger.info(f"[AVENZO MIGRATION BOOTSTRAP] Legacy schema detected! Stamping baseline revision: {revision}")
+        command.stamp(alembic_cfg, revision)
+        logger.info(f"[AVENZO MIGRATION BOOTSTRAP] Successfully stamped revision {revision}.")
+    elif status == "UNMATCHED_SCHEMA":
+        logger.error("[AVENZO MIGRATION BOOTSTRAP] CRITICAL: Existing database schema does not match any known Alembic baseline revision!")
+        sys.exit(1)
+
+    logger.info("[AVENZO MIGRATION BOOTSTRAP] Running 'alembic upgrade head'...")
+    command.upgrade(alembic_cfg, "head")
+    logger.info("[AVENZO MIGRATION BOOTSTRAP] Alembic migration upgrade to HEAD complete!")
+
+
+if __name__ == "__main__":
+    run_bootstrap()

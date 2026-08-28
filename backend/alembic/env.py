@@ -20,8 +20,9 @@ if config.config_file_name is not None:
 # Set target metadata for autogenerate
 target_metadata = Base.metadata
 
-# Set sqlalchemy.url dynamically from settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Set sqlalchemy.url dynamically from settings if not explicitly passed
+if not config.get_main_option("sqlalchemy.url") or "driver://user:pass" in config.get_main_option("sqlalchemy.url"):
+    config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 
 def run_migrations_offline() -> None:
