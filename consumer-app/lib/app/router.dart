@@ -18,6 +18,7 @@ import '../features/notifications/presentation/notification_preferences_screen.d
 import '../features/notifications/presentation/notifications_screen.dart';
 import '../features/orders/presentation/consumer_order_detail_screen.dart';
 import '../features/orders/presentation/consumer_order_history_screen.dart';
+import '../features/analytics/presentation/pantry_analytics_screen.dart';
 import '../features/pantry/presentation/pantry_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/recommendations/presentation/recommendations_screen.dart';
@@ -113,6 +114,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           final orderId = state.pathParameters['id']!;
           return OrderConfirmationScreen(orderId: orderId);
         },
+      ),
+      GoRoute(
+        path: '/home/analytics',
+        builder: (context, state) => const PantryAnalyticsScreen(),
       ),
       GoRoute(
         path: '/orders/my',

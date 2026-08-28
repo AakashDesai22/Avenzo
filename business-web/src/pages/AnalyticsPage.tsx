@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getExpirySummaryApi, getRiskMetricsApi } from '../api/expiry.api';
 import { getBatchesApi, getInventoryApi, getWarehousesApi, getInventoryTransactionsApi } from '../api/inventory.api';
+import { getBusinessWasteAnalyticsApi } from '../api/analytics.api';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { Header } from '../components/layout/Header';
 import { Badge } from '../components/ui/Badge';
@@ -88,10 +89,20 @@ export const AnalyticsPage: React.FC = () => {
     queryFn: () => getInventoryTransactionsApi({ limit: 50 }),
   });
 
+  const {
+    data: wasteAnalyticsRes,
+    isLoading: isWasteLoading,
+    refetch: refetchWaste,
+  } = useQuery({
+    queryKey: ['businessWasteAnalytics'],
+    queryFn: () => getBusinessWasteAnalyticsApi(),
+  });
+
   const summary = summaryRes?.data;
   const risk = riskRes?.data;
   const batches = batchesRes?.data || [];
   const inventoryList = inventoryRes?.data || [];
+  const wasteAnalytics = wasteAnalyticsRes?.data;
   const violations = (txRes?.data || []).filter((t) => t.transaction_type === 'FEFO_VIOLATION');
 
   const handleRefreshAll = async () => {
@@ -101,6 +112,7 @@ export const AnalyticsPage: React.FC = () => {
       refetchRisk(),
       refetchBatches(),
       refetchInv(),
+      refetchWaste(),
       queryClient.invalidateQueries({ queryKey: ['batches'] }),
     ]);
     setLastUpdated(new Date());
@@ -385,6 +397,69 @@ export const AnalyticsPage: React.FC = () => {
               <div style={{ width: '100%', height: '6px', backgroundColor: '#fee2e2', borderRadius: '3px', marginTop: '0.5rem', overflow: 'hidden' }}>
                 <div style={{ width: `${expiredPct}%`, height: '100%', backgroundColor: '#dc2626' }} />
               </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Closed-Loop Waste Intelligence & Consumer Utilization */}
+      <div
+        style={{
+          backgroundColor: '#ffffff',
+          padding: '1.5rem',
+          borderRadius: '0.5rem',
+          border: '1px solid #e2e8f0',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <PieChart size={20} color="#2563eb" /> Closed-Loop Consumer Waste & Utilization Analytics
+            </h3>
+            <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '0.125rem 0 0' }}>
+              Privacy-safe aggregate metrics derived from post-delivery consumer pantry audit logs
+            </p>
+          </div>
+        </div>
+
+        {isWasteLoading ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b', fontSize: '0.875rem' }}>
+            Loading closed-loop utilization metrics...
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+            <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '0.375rem', border: '1px solid #cbd5e1' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Warehouse Expired Loss</span>
+              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#dc2626', margin: '0.25rem 0 0' }}>
+                {formatCurrency(wasteAnalytics?.total_capital_lost_expired)}
+              </p>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                {wasteAnalytics?.total_warehouse_expired_units || 0} units at cost
+              </span>
+            </div>
+
+            <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '0.375rem', border: '1px solid #cbd5e1' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Consumer Reported Discards</span>
+              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#d97706', margin: '0.25rem 0 0' }}>
+                {wasteAnalytics?.total_consumer_reported_discards || 0} units
+              </p>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Post-delivery consumer waste</span>
+            </div>
+
+            <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '0.375rem', border: '1px solid #cbd5e1' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Consumer Utilized Volume</span>
+              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#16a34a', margin: '0.25rem 0 0' }}>
+                {wasteAnalytics?.total_consumer_reported_consumptions || 0} units
+              </p>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Successfully consumed</span>
+            </div>
+
+            <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '0.375rem', border: '1px solid #cbd5e1' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Inventory Waste Ratio</span>
+              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#2563eb', margin: '0.25rem 0 0' }}>
+                {wasteAnalytics?.overall_inventory_waste_percentage || 0}%
+              </p>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Warehouse spoilage rate</span>
             </div>
           </div>
         )}

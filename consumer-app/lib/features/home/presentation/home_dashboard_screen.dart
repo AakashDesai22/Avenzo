@@ -32,6 +32,11 @@ class HomeDashboardScreen extends ConsumerWidget {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.analytics_outlined),
+            onPressed: () => context.push('/home/analytics'),
+            tooltip: 'Waste Analytics & Insights',
+          ),
           Consumer(
             builder: (context, ref, child) {
               final unreadCount = ref.watch(unreadNotificationCountProvider);
