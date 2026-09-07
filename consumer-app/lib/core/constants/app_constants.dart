@@ -9,10 +9,16 @@ class AppConstants {
   // API Configuration
   // ==========================================================================
 
+  /// Production Base URL for the AVENZO backend API.
+  static const String productionApiBaseUrl =
+      'https://avenzo-cloud.teammavericks.org';
+
   /// Base URL for the AVENZO backend API.
-  /// Override this via dart-define or flavor configuration.
-  static const String apiBaseUrl =
-      String.fromEnvironment('API_BASE_URL', defaultValue: 'http://10.0.2.2:8000');
+  /// Defaults to production domain, or can be overridden via --dart-define=API_BASE_URL=...
+  static const String apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: productionApiBaseUrl,
+  );
 
   /// API version prefix
   static const String apiVersion = '/api/v1';
@@ -25,7 +31,8 @@ class AppConstants {
   // ==========================================================================
 
   static const String appName = 'AVENZO';
-  static const String appTagline = 'One Product. One Lifecycle. One Intelligence.';
+  static const String appTagline =
+      'One Product. One Lifecycle. One Intelligence.';
   static const String appVersion = '0.1.0';
 
   // ==========================================================================
@@ -49,8 +56,8 @@ class AppConstants {
   // Expiry Warning Thresholds (days)
   // ==========================================================================
 
-  static const int expiryWarningDays = 7;   // Warn 7 days before expiry
-  static const int expiryCriticalDays = 3;  // Critical alert 3 days before
+  static const int expiryWarningDays = 7; // Warn 7 days before expiry
+  static const int expiryCriticalDays = 3; // Critical alert 3 days before
 
   // ==========================================================================
   // Timeouts
