@@ -4,7 +4,12 @@
  * queued token refresh logic on 401 responses, and strict type safety.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const DEFAULT_PRODUCTION_URL = 'https://avenzo-cloud.teammavericks.org';
+const DEFAULT_DEVELOPMENT_URL = 'http://localhost:8000';
+
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.PROD ? DEFAULT_PRODUCTION_URL : DEFAULT_DEVELOPMENT_URL);
 const API_VERSION = import.meta.env.VITE_API_VERSION || '/api/v1';
 
 // Base URL with clean trailing/leading slash normalization
