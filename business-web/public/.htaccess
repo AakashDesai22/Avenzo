@@ -1,0 +1,63 @@
+# =============================================================================
+# AVENZO Business Web — Production Apache / Hostinger SPA Configuration
+# =============================================================================
+
+# Disable directory browsing
+Options -Indexes
+
+# Follow symbolic links (required for mod_rewrite on most shared hosts)
+Options +FollowSymLinks
+
+# Enable URL rewriting for Single Page Application (SPA) routing
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Redirect HTTP to HTTPS (safe standard for modern hosting)
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # If requested resource physically exists as a file or directory, serve directly
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Otherwise rewrite all requests to index.html (SPA client-side routing fallback)
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Modern MIME Types
+<IfModule mod_mime.c>
+  AddType application/javascript .js .mjs
+  AddType text/css .css
+  AddType image/svg+xml .svg
+  AddType application/json .json
+  AddType image/webp .webp
+  AddType font/woff2 .woff2
+</IfModule>
+
+# Caching and Security Headers
+<IfModule mod_headers.c>
+  # Never cache index.html to guarantee users always receive the latest release
+  <Files "index.html">
+    Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </Files>
+
+  # Cache static assets (Vite hashed bundles in /assets/) for 1 year
+  <If "%{REQUEST_URI} =~ m#^/assets/#">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </If>
+
+  # Essential Security Headers
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Enable Gzip / Deflate compression for text assets
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/json image/svg+xml
+</IfModule>
