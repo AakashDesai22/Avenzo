@@ -206,4 +206,26 @@ If `EXPIRY_MONITOR_SECRET` needs to be rotated:
 3. Update `EXPIRY_MONITOR_SECRET` in **GitHub Repository** -> Settings -> Secrets and variables -> Actions.
 4. Manually trigger the workflow via `workflow_dispatch` to verify successful authentication.
 
+---
+
+## 9. Administrative Account Management (CLI Bootstrap & Password Reset)
+
+AVENZO does not expose public HTTP endpoints for administrator creation or password resets. To bootstrap an initial `ADMIN` user or reset/promote an existing account in production:
+
+### Interactive Execution (Recommended via Render Shell)
+1. Open the **Render Dashboard** and select the backend web service (`avenzo-backend-326c`).
+2. Navigate to the **Shell** tab.
+3. Run the administration CLI tool:
+   ```bash
+   cd backend
+   python -m app.cli.manage_admin
+   ```
+4. Follow the interactive prompts:
+   - **Admin email**: Enter the administrator's email address.
+   - **Promotion confirmation**: If the email already exists with a non-admin role (e.g. `STAFF` or `CONSUMER`), the CLI displays the account details and prompts for explicit confirmation before elevating privileges to `ADMIN`.
+   - **Password & confirmation**: Enter the new password masked via `getpass`. Passwords must be at least 8 characters long.
+
+> 🔒 **SECURITY SAFEGUARD**: Never pass passwords as command-line arguments or commit credentials to Git. The CLI ensures passwords and bcrypt hashes are never logged to stdout/stderr.
+
+
 
