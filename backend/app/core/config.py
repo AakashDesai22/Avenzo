@@ -5,7 +5,7 @@ Enforces production security rules when APP_ENV == "production".
 """
 
 
-from pydantic import model_validator
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -42,12 +42,29 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # CORS — comma-separated list of allowed origins
-    ALLOWED_ORIGINS_STR: str = "http://localhost:5173,http://localhost:3000"
+    # CORS — comma-separated list of allowed origins.
+    # Canonical configuration name: ALLOWED_ORIGINS.
+    # Backward-compatible legacy name: ALLOWED_ORIGINS_STR.
+    # Deterministic precedence: ALLOWED_ORIGINS > ALLOWED_ORIGINS_STR.
+    ALLOWED_ORIGINS_STR: str = Field(
+        default="http://localhost:5173,http://localhost:3000",
+        validation_alias=AliasChoices("ALLOWED_ORIGINS", "ALLOWED_ORIGINS_STR"),
+        description="Comma-separated allowed CORS origins. Precedence: ALLOWED_ORIGINS > ALLOWED_ORIGINS_STR.",
+    )
 
     @property
     def ALLOWED_ORIGINS(self) -> list[str]:
-        return [origin.strip() for origin in self.ALLOWED_ORIGINS_STR.split(",") if origin.strip()]
+        origins: list[str] = []
+        for raw in self.ALLOWED_ORIGINS_STR.split(","):
+            cleaned = raw.strip()
+            if not cleaned:
+                continue
+            # Strip trailing slash if present (CORS origins do not include path or trailing slash)
+            if cleaned.endswith("/") and cleaned not in ("http://", "https://"):
+                cleaned = cleaned.rstrip("/")
+            if cleaned and cleaned not in origins:
+                origins.append(cleaned)
+        return origins
 
     # Inventory & Expiry Threshold Defaults (Centralized App-Level Config)
     EXPIRING_SOON_THRESHOLD_DAYS: int = 30
@@ -92,6 +109,10 @@ class Settings(BaseSettings):
             ):
                 raise ValueError(
                     "EXPIRY_MONITOR_SECRET must be configured with a strong secret (at least 16 characters) in production."
+                )
+            if "*" in self.ALLOWED_ORIGINS:
+                raise ValueError(
+                    "Wildcard '*' origin is not permitted when allow_credentials=True in production."
                 )
         return self
 

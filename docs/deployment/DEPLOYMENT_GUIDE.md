@@ -39,7 +39,8 @@ JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
 
-ALLOWED_ORIGINS=https://consumer.avenzo.app,https://business.avenzo.app
+# CORS: Canonical ALLOWED_ORIGINS (or legacy ALLOWED_ORIGINS_STR). Comma-separated, no trailing slashes.
+ALLOWED_ORIGINS=https://avenzo.teammavericks.org,https://consumer.avenzo.app,https://business.avenzo.app
 LOG_LEVEL=INFO
 
 FCM_PROJECT_ID=avenzo-116165

@@ -112,9 +112,9 @@ Because the Business Web runs in a browser, cross-origin requests (`Fetch` / `XH
 1. Once the Hostinger website domain is determined (e.g., `https://business.teammavericks.org`):
 2. Log in to the **Render Dashboard**.
 3. Select the `avenzo-backend` web service -> **Environment Variables**.
-4. Update `ALLOWED_ORIGINS_STR` to include the Hostinger production domain:
+4. Update `ALLOWED_ORIGINS` (canonical) or `ALLOWED_ORIGINS_STR` (legacy supported) to include the production web domain:
    ```ini
-   ALLOWED_ORIGINS_STR=http://localhost:5173,http://localhost:3000,https://business.teammavericks.org
+   ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,https://avenzo.teammavericks.org,https://business.teammavericks.org
    ```
 5. Save changes. Render will perform a zero-downtime redeploy with the updated CORS policy.
 
@@ -146,6 +146,6 @@ After files are uploaded and CORS is updated:
 | Symptom | Cause | Solution |
 | :--- | :--- | :--- |
 | **HTTP 404 Not Found on page refresh** | Missing or inactive `.htaccess` in `public_html/` | Ensure `.htaccess` is present at the root of `public_html/` and `mod_rewrite` is enabled in Hostinger PHP/Apache settings. |
-| **CORS Error (`Access-Control-Allow-Origin`)** | Web domain not registered in backend config | Add the Hostinger domain to `ALLOWED_ORIGINS_STR` in Render dashboard and redeploy backend. |
+| **CORS Error (`Access-Control-Allow-Origin`)** | Web domain not registered in backend config | Add the web domain to `ALLOWED_ORIGINS` (or `ALLOWED_ORIGINS_STR`) in Render dashboard and redeploy backend. |
 | **Old version keeps appearing after upload** | Browser caching `index.html` | The provided `.htaccess` disables caching for `index.html`. Perform a hard refresh (`Ctrl + Shift + R`). |
 | **Mixed Content Warning** | Accessing via HTTP instead of HTTPS | Ensure Hostinger SSL is activated. The `.htaccess` will automatically enforce HTTPS redirection. |
