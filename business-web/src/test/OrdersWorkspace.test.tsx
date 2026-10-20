@@ -1,5 +1,5 @@
 /**
- * AVENZO Business Web — Orders Workspace Vitest Test Suite
+ * AVENZO Business Web - Orders Workspace Vitest Test Suite
  * Tests Order Fulfillment Workspace rendering, status filter, modal opening,
  * FEFO pick list display, and role-based action visibility (ADMIN/BUSINESS_MANAGER vs STAFF).
  */
@@ -45,6 +45,7 @@ const mockOrders: Order[] = [
           unit_of_measure: 'units',
           has_expiry: true,
           is_active: true,
+          is_published: true,
         },
         allocations: [],
         created_at: '2026-08-26T10:00:00Z',
@@ -238,3 +239,5 @@ describe('OrdersPage & Fulfillment Workspace Suite', () => {
     });
   });
 });
+
+

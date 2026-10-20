@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getProductsApi, createProductApi, updateProductApi, getCategoriesApi } from '../api/products.api';
+import {
+  getProductsApi,
+  createProductApi,
+  updateProductApi,
+  getCategoriesApi,
+  publishProductApi,
+  unpublishProductApi,
+} from '../api/products.api';
 import { Product, ProductCreate } from '../types/products';
 import { Header } from '../components/layout/Header';
 import { Button } from '../components/ui/Button';
@@ -10,7 +17,7 @@ import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
 import { formatCurrency } from '../utils/formatters';
 import { useAuth } from '../context/AuthContext';
-import { Plus } from 'lucide-react';
+import { Plus, Globe, EyeOff } from 'lucide-react';
 
 export const ProductsPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -19,23 +26,32 @@ export const ProductsPage: React.FC = () => {
 
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [publishFilter, setPublishFilter] = useState<string>('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   // Form states
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [sku, setSku] = useState('');
   const [barcode, setBarcode] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [unitPrice, setUnitPrice] = useState('');
   const [costPrice, setCostPrice] = useState('');
   const [shelfLifeDays, setShelfLifeDays] = useState('');
   const [hasExpiry, setHasExpiry] = useState(true);
+  const [isPublished, setIsPublished] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const { data: productsRes, isLoading } = useQuery({
-    queryKey: ['products', search, selectedCategory],
-    queryFn: () => getProductsApi({ search: search || undefined, category_id: selectedCategory || undefined }),
+    queryKey: ['products', search, selectedCategory, publishFilter],
+    queryFn: () =>
+      getProductsApi({
+        search: search || undefined,
+        category_id: selectedCategory || undefined,
+        is_published: publishFilter !== '' ? publishFilter === 'true' : undefined,
+      }),
   });
 
   const { data: categoriesRes } = useQuery({
@@ -70,17 +86,30 @@ export const ProductsPage: React.FC = () => {
     },
   });
 
+  const publishMutation = useMutation({
+    mutationFn: (id: string) => publishProductApi(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products'] }),
+  });
+
+  const unpublishMutation = useMutation({
+    mutationFn: (id: string) => unpublishProductApi(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products'] }),
+  });
+
   const closeModal = () => {
     setIsCreateModalOpen(false);
     setEditingProduct(null);
     setName('');
+    setDescription('');
     setSku('');
     setBarcode('');
+    setImageUrl('');
     setCategoryId('');
     setUnitPrice('');
     setCostPrice('');
     setShelfLifeDays('');
     setHasExpiry(true);
+    setIsPublished(false);
     setFormError(null);
   };
 
@@ -95,13 +124,16 @@ export const ProductsPage: React.FC = () => {
   const handleOpenEdit = (prod: Product) => {
     setEditingProduct(prod);
     setName(prod.name);
+    setDescription(prod.description || '');
     setSku(prod.sku);
     setBarcode(prod.barcode || '');
+    setImageUrl(prod.image_url || '');
     setCategoryId(prod.category_id);
     setUnitPrice(String(prod.unit_price));
     setCostPrice(prod.cost_price ? String(prod.cost_price) : '');
     setShelfLifeDays(prod.shelf_life_days ? String(prod.shelf_life_days) : '');
     setHasExpiry(prod.has_expiry);
+    setIsPublished(prod.is_published);
     setIsCreateModalOpen(true);
   };
 
@@ -119,17 +151,21 @@ export const ProductsPage: React.FC = () => {
         id: editingProduct.id,
         data: {
           name,
+          description: description || undefined,
           barcode: barcode || undefined,
           category_id: categoryId,
           unit_price: parseFloat(unitPrice),
           cost_price: costPrice ? parseFloat(costPrice) : undefined,
           shelf_life_days: shelfLifeDays ? parseInt(shelfLifeDays, 10) : undefined,
           has_expiry: hasExpiry,
+          image_url: imageUrl || undefined,
+          is_published: isPublished,
         },
       });
     } else {
       createMutation.mutate({
         name,
+        description: description || undefined,
         sku,
         barcode: barcode || undefined,
         category_id: categoryId,
@@ -137,30 +173,75 @@ export const ProductsPage: React.FC = () => {
         cost_price: costPrice ? parseFloat(costPrice) : undefined,
         shelf_life_days: shelfLifeDays ? parseInt(shelfLifeDays, 10) : undefined,
         has_expiry: hasExpiry,
+        image_url: imageUrl || undefined,
+        is_published: isPublished,
       });
     }
   };
 
   const columns: Column<Product>[] = [
-    { key: 'name', header: 'Product Name', render: (p) => <span style={{ fontWeight: 600 }}>{p.name}</span> },
+    {
+      key: 'name',
+      header: 'Product Name',
+      render: (p) => (
+        <div>
+          <span style={{ fontWeight: 600, display: 'block' }}>{p.name}</span>
+          {p.description && (
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+              {p.description.length > 60 ? p.description.slice(0, 60) + '…' : p.description}
+            </span>
+          )}
+        </div>
+      ),
+    },
     { key: 'sku', header: 'SKU' },
     { key: 'category', header: 'Category', render: (p) => p.category?.name || 'N/A' },
     { key: 'unit_price', header: 'Unit Price', render: (p) => formatCurrency(p.unit_price) },
-    { key: 'cost_price', header: 'Cost Price', render: (p) => formatCurrency(p.cost_price) },
-    { key: 'shelf_life', header: 'Shelf Life', render: (p) => (p.shelf_life_days ? `${p.shelf_life_days} days` : 'N/A') },
     {
-      key: 'has_expiry',
-      header: 'Expiry Tracking',
-      render: (p) => (p.has_expiry ? <Badge variant="success">Enabled</Badge> : <Badge variant="neutral">Disabled</Badge>),
+      key: 'shelf_life',
+      header: 'Shelf Life',
+      render: (p) => (p.shelf_life_days ? `${p.shelf_life_days} days` : 'N/A'),
+    },
+    {
+      key: 'is_published',
+      header: 'Status',
+      render: (p) =>
+        p.is_published ? (
+          <Badge variant="success">Published</Badge>
+        ) : (
+          <Badge variant="warning">Draft</Badge>
+        ),
     },
     {
       key: 'actions',
       header: 'Actions',
       render: (p) =>
         canManage ? (
-          <Button size="sm" variant="outline" onClick={() => handleOpenEdit(p)}>
-            Edit
-          </Button>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <Button size="sm" variant="outline" onClick={() => handleOpenEdit(p)}>
+              Edit
+            </Button>
+            {p.is_published ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => unpublishMutation.mutate(p.id)}
+                isLoading={unpublishMutation.isPending}
+                title="Revert to draft — hides from consumer marketplace"
+              >
+                <EyeOff size={14} /> Unpublish
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                onClick={() => publishMutation.mutate(p.id)}
+                isLoading={publishMutation.isPending}
+                title="Publish — makes visible in consumer marketplace"
+              >
+                <Globe size={14} /> Publish
+              </Button>
+            )}
+          </div>
         ) : null,
     },
   ];
@@ -169,7 +250,7 @@ export const ProductsPage: React.FC = () => {
     <div>
       <Header
         title="Product Catalogue"
-        subtitle="Manage master product records, SKUs, and pricing"
+        subtitle="Manage master product records, SKUs, pricing, and publish to consumer marketplace"
         action={
           canManage ? (
             <Button onClick={handleOpenCreate}>
@@ -182,7 +263,7 @@ export const ProductsPage: React.FC = () => {
       <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         {/* Search & Filter Bar */}
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
+          <div style={{ flex: 1, minWidth: '240px' }}>
             <Input
               placeholder="Search by product name or SKU..."
               value={search}
@@ -207,6 +288,21 @@ export const ProductsPage: React.FC = () => {
               </option>
             ))}
           </select>
+          <select
+            value={publishFilter}
+            onChange={(e) => setPublishFilter(e.target.value)}
+            style={{
+              padding: '0.625rem 1rem',
+              backgroundColor: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--color-text-primary)',
+            }}
+          >
+            <option value="">All Statuses</option>
+            <option value="true">Published</option>
+            <option value="false">Draft</option>
+          </select>
         </div>
 
         {/* Product Data Table */}
@@ -222,20 +318,53 @@ export const ProductsPage: React.FC = () => {
       >
         <form id="product-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {formError && (
-            <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-danger-bg)', color: '#fca5a5', borderRadius: 'var(--radius-md)', fontSize: '0.875rem' }}>
+            <div
+              style={{
+                padding: '0.75rem',
+                backgroundColor: 'var(--color-danger-bg)',
+                color: '#fca5a5',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.875rem',
+              }}
+            >
               {formError}
             </div>
           )}
 
           <Input label="Product Name *" value={name} onChange={(e) => setName(e.target.value)} required />
+          <Input
+            label="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <Input label="SKU *" value={sku} onChange={(e) => setSku(e.target.value)} disabled={!!editingProduct} required />
+            <Input
+              label="SKU *"
+              value={sku}
+              onChange={(e) => setSku(e.target.value)}
+              disabled={!!editingProduct}
+              required
+            />
             <Input label="Barcode" value={barcode} onChange={(e) => setBarcode(e.target.value)} />
           </div>
 
+          <Input
+            label="Image URL"
+            placeholder="https://example.com/image.jpg"
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+          />
+
           <div>
-            <label style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '0.375rem' }}>
+            <label
+              style={{
+                fontSize: '0.875rem',
+                color: 'var(--color-text-secondary)',
+                display: 'block',
+                marginBottom: '0.375rem',
+              }}
+            >
               Category *
             </label>
             <select
@@ -251,6 +380,7 @@ export const ProductsPage: React.FC = () => {
                 color: 'var(--color-text-primary)',
               }}
             >
+              <option value="">Select a category...</option>
               {categoriesRes?.data?.map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.name}
@@ -260,19 +390,71 @@ export const ProductsPage: React.FC = () => {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <Input label="Unit Selling Price (₹) *" type="number" step="0.01" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} required />
-            <Input label="Cost Price (₹)" type="number" step="0.01" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} />
+            <Input
+              label="Unit Selling Price (₹) *"
+              type="number"
+              step="0.01"
+              value={unitPrice}
+              onChange={(e) => setUnitPrice(e.target.value)}
+              required
+            />
+            <Input
+              label="Cost Price (₹)"
+              type="number"
+              step="0.01"
+              value={costPrice}
+              onChange={(e) => setCostPrice(e.target.value)}
+            />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <Input label="Shelf Life (Days)" type="number" value={shelfLifeDays} onChange={(e) => setShelfLifeDays(e.target.value)} />
+            <Input
+              label="Shelf Life (Days)"
+              type="number"
+              value={shelfLifeDays}
+              onChange={(e) => setShelfLifeDays(e.target.value)}
+            />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', justifyContent: 'center' }}>
-              <label style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>Has Expiry Date?</label>
+              <label style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
+                Has Expiry Date?
+              </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem' }}>
                 <input type="checkbox" checked={hasExpiry} onChange={(e) => setHasExpiry(e.target.checked)} />
                 Enable Expiry Tracking
               </label>
             </div>
+          </div>
+
+          {/* Publish toggle */}
+          <div
+            style={{
+              padding: '0.875rem',
+              backgroundColor: isPublished ? 'rgba(34, 197, 94, 0.06)' : 'var(--color-surface-alt, rgba(0,0,0,0.04))',
+              border: `1px solid ${isPublished ? 'rgba(34, 197, 94, 0.3)' : 'var(--color-border)'}`,
+              borderRadius: 'var(--radius-md)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div>
+              <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                {isPublished ? '🟢 Published' : '⚫ Draft'}
+              </p>
+              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+                {isPublished
+                  ? 'Visible to consumers in the marketplace'
+                  : 'Hidden from consumers — save as draft'}
+              </p>
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem' }}>
+              <input
+                type="checkbox"
+                checked={isPublished}
+                onChange={(e) => setIsPublished(e.target.checked)}
+              />
+              Publish to marketplace
+            </label>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>

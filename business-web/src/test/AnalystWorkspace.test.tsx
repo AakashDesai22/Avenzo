@@ -1,5 +1,5 @@
 /**
- * AVENZO Business Web — Phase 9E Analyst Workspace Unit Test Suite
+ * AVENZO Business Web - Phase 9E Analyst Workspace Unit Test Suite
  * Verifies Analyst Intelligence Workspace rendering, Expiry/Risk/FEFO analytics,
  * read-only RBAC isolation, AI roadmap placeholders without fake metrics, and consumer rejection.
  */
@@ -56,7 +56,7 @@ const renderWithRole = (ui: React.ReactNode, roleName: UserRoleName = 'STAFF') =
   );
 };
 
-describe('Phase 9E — Analyst Intelligence Workspace Suite', () => {
+describe('Phase 9E - Analyst Intelligence Workspace Suite', () => {
   describe('Analyst Intelligence Dashboard', () => {
     it('renders Analyst Intelligence Workspace header and Analyst badge', () => {
       renderWithRole(<AnalyticsPage />, 'STAFF');
@@ -95,7 +95,7 @@ describe('Phase 9E — Analyst Intelligence Workspace Suite', () => {
     it('renders AI & Forecasting Roadmap section without fake metrics', () => {
       renderWithRole(<AnalyticsPage />, 'STAFF');
 
-      expect(screen.getByText('AI & Forecasting — Coming Next')).toBeInTheDocument();
+      expect(screen.getByText(/AI & Forecasting.*Coming Next/)).toBeInTheDocument();
       expect(screen.getByText('Demand & Velocity Forecasting')).toBeInTheDocument();
       expect(screen.getByText('Spoilage & Waste Prediction')).toBeInTheDocument();
       expect(screen.getByText('Smart Markdown Recommendations')).toBeInTheDocument();
@@ -134,3 +134,5 @@ describe('Phase 9E — Analyst Intelligence Workspace Suite', () => {
     });
   });
 });
+
+

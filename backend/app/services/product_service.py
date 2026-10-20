@@ -3,19 +3,19 @@ AVENZO Backend — Product Service
 Business logic for managing Product Master catalogue.
 """
 
-from typing import List, Optional, Tuple
 from uuid import UUID
+
+from fastapi import HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
-from sqlalchemy import func
-from fastapi import HTTPException, status
 
-from app.models.product import Product, Category, Brand
+from app.models.product import Category, Product
 from app.schemas.product import ProductCreate, ProductUpdate
 
 
-async def create_product(session: AsyncSession, data: ProductCreate, created_by_id: Optional[UUID] = None) -> Product:
+async def create_product(session: AsyncSession, data: ProductCreate, created_by_id: UUID | None = None) -> Product:
     """Create a new product master entity."""
     # Verify category exists
     cat_res = await session.execute(select(Category).where(Category.id == data.category_id))
@@ -58,6 +58,7 @@ async def create_product(session: AsyncSession, data: ProductCreate, created_by_
         has_expiry=data.has_expiry,
         image_url=data.image_url,
         is_active=data.is_active,
+        is_published=data.is_published,
         created_by=created_by_id,
     )
 
@@ -87,34 +88,49 @@ async def list_products(
     session: AsyncSession,
     skip: int = 0,
     limit: int = 20,
-    category_id: Optional[UUID] = None,
-    search: Optional[str] = None,
-    barcode: Optional[str] = None,
-    is_active: Optional[bool] = None,
-) -> Tuple[List[Product], int]:
+    category_id: UUID | None = None,
+    search: str | None = None,
+    barcode: str | None = None,
+    is_active: bool | None = None,
+    is_published: bool | None = None,
+) -> tuple[list[Product], int]:
     """List products with pagination, category filter, barcode filter, and text search."""
-    stmt = select(Product).options(joinedload(Product.category), joinedload(Product.brand)).where(Product.is_deleted == False)
+    # Build shared filter conditions applied to both count and results queries
+    base_conditions = [Product.is_deleted == False]
 
     if category_id:
-        stmt = stmt.where(Product.category_id == category_id)
+        base_conditions.append(Product.category_id == category_id)
 
     if is_active is not None:
-        stmt = stmt.where(Product.is_active == is_active)
+        base_conditions.append(Product.is_active == is_active)
+
+    if is_published is not None:
+        base_conditions.append(Product.is_published == is_published)
 
     if barcode:
-        stmt = stmt.where(Product.barcode == barcode)
+        base_conditions.append(Product.barcode == barcode)
 
     if search:
         search_filter = f"%{search}%"
-        stmt = stmt.where(Product.name.ilike(search_filter) | Product.sku.ilike(search_filter) | Product.barcode.ilike(search_filter))
+        base_conditions.append(
+            Product.name.ilike(search_filter)
+            | Product.sku.ilike(search_filter)
+            | Product.barcode.ilike(search_filter)
+        )
 
-    # Total count query
-    count_stmt = select(func.count()).select_from(select(Product.id).where(Product.is_deleted == False).subquery())
+    # Total count with the same filters applied (bug fix: previously ignored filters)
+    count_stmt = select(func.count(Product.id)).where(*base_conditions)
     total_res = await session.execute(count_stmt)
     total = total_res.scalar() or 0
 
     # Paginated results
-    stmt = stmt.offset(skip).limit(limit)
+    stmt = (
+        select(Product)
+        .options(joinedload(Product.category), joinedload(Product.brand))
+        .where(*base_conditions)
+        .offset(skip)
+        .limit(limit)
+    )
     result = await session.execute(stmt)
     products = result.scalars().unique().all()
 
@@ -127,7 +143,7 @@ async def update_product(session: AsyncSession, product_id: UUID, data: ProductU
 
     update_dict = data.model_dump(exclude_unset=True)
 
-    if "category_id" in update_dict and update_dict["category_id"]:
+    if update_dict.get("category_id"):
         cat_res = await session.execute(select(Category).where(Category.id == update_dict["category_id"]))
         if not cat_res.scalars().first():
             raise HTTPException(
@@ -143,8 +159,38 @@ async def update_product(session: AsyncSession, product_id: UUID, data: ProductU
 
 
 async def deactivate_product(session: AsyncSession, product_id: UUID) -> Product:
-    """Soft deactivate a product."""
+    """Soft deactivate a product. Also unpublishes it to hide from consumer marketplace."""
     product = await get_product_by_id(session, product_id)
     product.is_active = False
+    product.is_published = False
+    await session.commit()
+    return await get_product_by_id(session, product_id)
+
+
+async def publish_product(session: AsyncSession, product_id: UUID) -> Product:
+    """
+    Publish a product to make it visible in the consumer marketplace.
+    Only active, non-deleted products may be published.
+    """
+    product = await get_product_by_id(session, product_id)
+
+    if not product.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot publish an inactive product. Reactivate it first.",
+        )
+
+    product.is_published = True
+    await session.commit()
+    return await get_product_by_id(session, product_id)
+
+
+async def unpublish_product(session: AsyncSession, product_id: UUID) -> Product:
+    """
+    Revert a product to draft state, hiding it from the consumer marketplace.
+    The product remains in the admin catalogue with all data intact.
+    """
+    product = await get_product_by_id(session, product_id)
+    product.is_published = False
     await session.commit()
     return await get_product_by_id(session, product_id)

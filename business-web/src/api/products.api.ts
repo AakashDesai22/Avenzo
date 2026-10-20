@@ -9,6 +9,7 @@ export async function getProductsApi(params?: {
   search?: string;
   category_id?: string;
   is_active?: boolean;
+  is_published?: boolean;
   skip?: number;
   limit?: number;
 }): Promise<ApiResponse<Product[]>> {
@@ -41,4 +42,16 @@ export async function createCategoryApi(data: CategoryCreate): Promise<ApiRespon
 
 export async function updateCategoryApi(id: string, data: CategoryUpdate): Promise<ApiResponse<Category>> {
   return apiPut<Category>(`/categories/${id}`, data);
+}
+
+export async function deleteCategoryApi(id: string): Promise<ApiResponse<Category>> {
+  return apiDelete<Category>(`/categories/${id}`);
+}
+
+export async function publishProductApi(id: string): Promise<ApiResponse<Product>> {
+  return apiPost<Product>(`/products/${id}/publish`);
+}
+
+export async function unpublishProductApi(id: string): Promise<ApiResponse<Product>> {
+  return apiPost<Product>(`/products/${id}/unpublish`);
 }

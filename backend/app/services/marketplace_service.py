@@ -4,22 +4,22 @@ Server-side business logic for consumer product catalog, availability calculatio
 and non-expired sellable inventory aggregation across valid batches.
 """
 
-from typing import List, Tuple, Optional
-from uuid import UUID
 from datetime import date
+from uuid import UUID
+
+from sqlalchemy import and_, case, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func, or_, and_, case
 from sqlalchemy.orm import joinedload
 
 from app.core.date_utils import get_business_date
+from app.models.inventory import Batch, Inventory
 from app.models.product import Product
-from app.models.inventory import Inventory, Batch
 from app.schemas.marketplace import MarketplaceProductRead
 
 
 async def get_product_availability_map(
-    session: AsyncSession, product_ids: List[UUID], target_date: Optional[date] = None
+    session: AsyncSession, product_ids: list[UUID], target_date: date | None = None
 ) -> dict[UUID, int]:
     """
     Calculates aggregated available stock (quantity_on_hand - quantity_reserved)
@@ -72,18 +72,18 @@ async def list_marketplace_products(
     session: AsyncSession,
     skip: int = 0,
     limit: int = 20,
-    category_id: Optional[UUID] = None,
-    search: Optional[str] = None,
+    category_id: UUID | None = None,
+    search: str | None = None,
     in_stock_only: bool = False,
-) -> Tuple[List[MarketplaceProductRead], int]:
+) -> tuple[list[MarketplaceProductRead], int]:
     """
     Lists consumer-facing marketplace products with aggregated available stock.
     Avoids N+1 query patterns by fetching product batch availability in a single SQL operation.
     """
     business_date = get_business_date()
 
-    # Base filter conditions for active, non-deleted products
-    filters = [Product.is_active == True, Product.is_deleted == False]
+    # Base filter conditions for active, published, non-deleted products
+    filters = [Product.is_active == True, Product.is_published == True, Product.is_deleted == False]
 
     if category_id:
         filters.append(Product.category_id == category_id)
@@ -125,7 +125,7 @@ async def list_marketplace_products(
     product_ids = [p.id for p in products]
     availability_map = await get_product_availability_map(session, product_ids, target_date=business_date)
 
-    marketplace_items: List[MarketplaceProductRead] = []
+    marketplace_items: list[MarketplaceProductRead] = []
     for p in products:
         qty = availability_map.get(p.id, 0)
         if in_stock_only and qty <= 0:
@@ -157,7 +157,7 @@ async def list_marketplace_products(
 
 async def get_marketplace_product_by_id(
     session: AsyncSession, product_id: UUID
-) -> Optional[MarketplaceProductRead]:
+) -> MarketplaceProductRead | None:
     """
     Gets detailed consumer marketplace product information including sellable stock.
     Returns None if product is inactive, deleted, or non-existent.
@@ -170,7 +170,7 @@ async def get_marketplace_product_by_id(
             joinedload(Product.category),
             joinedload(Product.brand),
         )
-        .where(Product.id == product_id, Product.is_active == True, Product.is_deleted == False)
+        .where(Product.id == product_id, Product.is_active == True, Product.is_published == True, Product.is_deleted == False)
     )
 
     result = await session.execute(stmt)

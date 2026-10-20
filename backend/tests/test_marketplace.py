@@ -4,17 +4,18 @@ Verifies consumer marketplace endpoints, sellable stock aggregation,
 expiry filtering, reservation deductions, search/category filters, security, and leak-prevention.
 """
 
-import pytest
 from datetime import timedelta
 from decimal import Decimal
+
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.date_utils import get_business_date
-from app.models.product import Product, Category
-from app.models.inventory import Inventory, Batch
-from app.models.warehouse import Warehouse
+from app.models.inventory import Batch, Inventory
+from app.models.product import Category, Product
 from app.models.supplier import Supplier
+from app.models.warehouse import Warehouse
 
 
 @pytest.mark.asyncio
@@ -44,6 +45,7 @@ async def test_marketplace_list_products_success(
         reorder_point=10,
         has_expiry=True,
         is_active=True,
+        is_published=True,
     )
     supplier = Supplier(name="Local Dairy Farm")
     warehouse = Warehouse(name="Central Market Hub", city="Austin")
@@ -111,6 +113,7 @@ async def test_marketplace_reserved_quantity_deduction(
         unit_price=Decimal("4.50"),
         has_expiry=True,
         is_active=True,
+        is_published=True,
     )
     warehouse = Warehouse(name="Produce Depot", city="Dallas")
     db_session.add_all([product, warehouse])
@@ -163,6 +166,7 @@ async def test_marketplace_expired_batch_excluded(
         unit_price=Decimal("5.99"),
         has_expiry=True,
         is_active=True,
+        is_published=True,
     )
     warehouse = Warehouse(name="Bakery Hub", city="Houston")
     db_session.add_all([product, warehouse])
@@ -215,6 +219,7 @@ async def test_marketplace_multiple_batches_aggregate(
         unit_price=Decimal("2.99"),
         has_expiry=True,
         is_active=True,
+        is_published=True,
     )
     warehouse = Warehouse(name="Beverage Cold Storage", city="Seattle")
     db_session.add_all([product, warehouse])
@@ -315,6 +320,7 @@ async def test_marketplace_search_and_category_filter(
         category_id=cat_a.id,
         unit_price=Decimal("19.99"),
         is_active=True,
+        is_published=True,
     )
     prod_2 = Product(
         name="Black Earl Grey Tea",
@@ -322,6 +328,7 @@ async def test_marketplace_search_and_category_filter(
         category_id=cat_b.id,
         unit_price=Decimal("8.99"),
         is_active=True,
+        is_published=True,
     )
     db_session.add_all([prod_1, prod_2])
     await db_session.commit()

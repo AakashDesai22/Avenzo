@@ -1,5 +1,5 @@
 /**
- * AVENZO Business Web — Batch Recall Workspace Vitest Suite
+ * AVENZO Business Web - Batch Recall Workspace Vitest Suite
  * Verifies Batch Recall modal, impact preview, confirmation validation,
  * API dispatch, and RBAC authorization rules (ADMIN/BUSINESS_MANAGER vs STAFF).
  */
@@ -33,6 +33,7 @@ const mockBatches: Batch[] = [
       unit_of_measure: 'units',
       has_expiry: true,
       is_active: true,
+      is_published: true,
     },
     created_at: '2026-08-01T10:00:00Z',
   },
@@ -54,6 +55,7 @@ const mockBatches: Batch[] = [
       unit_of_measure: 'units',
       has_expiry: true,
       is_active: true,
+      is_published: true,
     },
     created_at: '2026-07-01T10:00:00Z',
   },
@@ -170,3 +172,5 @@ describe('Batch Recall Workspace Vitest Suite', () => {
     expect(screen.queryByRole('button', { name: /Recall/i })).not.toBeInTheDocument();
   });
 });
+
+

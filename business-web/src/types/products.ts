@@ -24,6 +24,7 @@ export interface Product {
   name: string;
   sku: string;
   barcode?: string;
+  description?: string;
   category_id: string;
   category?: Category;
   brand_id?: string;
@@ -37,6 +38,7 @@ export interface Product {
   has_expiry: boolean;
   image_url?: string;
   is_active: boolean;
+  is_published: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -45,6 +47,7 @@ export interface ProductCreate {
   name: string;
   sku: string;
   barcode?: string;
+  description?: string;
   category_id: string;
   brand_id?: string;
   unit_of_measure?: string;
@@ -54,11 +57,14 @@ export interface ProductCreate {
   reorder_quantity?: number;
   shelf_life_days?: number;
   has_expiry?: boolean;
+  image_url?: string;
+  is_published?: boolean;
 }
 
 export interface ProductUpdate {
   name?: string;
   barcode?: string;
+  description?: string;
   category_id?: string;
   brand_id?: string;
   unit_of_measure?: string;
@@ -68,7 +74,9 @@ export interface ProductUpdate {
   reorder_quantity?: number;
   shelf_life_days?: number;
   has_expiry?: boolean;
+  image_url?: string;
   is_active?: boolean;
+  is_published?: boolean;
 }
 
 export interface CategoryCreate {

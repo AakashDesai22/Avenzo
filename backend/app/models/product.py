@@ -3,12 +3,12 @@ AVENZO Backend — Category, Brand, and Product Models
 ORM model definitions for Product Catalogue foundation.
 """
 
-from sqlalchemy import Column, String, Boolean, ForeignKey, Text, Numeric, Integer
-from sqlalchemy.orm import relationship
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 from app.core.database import Base
-from app.models.base import UUIDMixin, TimestampMixin, SoftDeleteMixin
+from app.models.base import SoftDeleteMixin, TimestampMixin, UUIDMixin
 
 
 class Category(Base, UUIDMixin, TimestampMixin):
@@ -54,6 +54,7 @@ class Product(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
     has_expiry = Column(Boolean, default=True, nullable=False)
     image_url = Column(String(500), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
+    is_published = Column(Boolean, default=False, nullable=False, index=True)  # Draft/publish workflow
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     category = relationship("Category", back_populates="products")
