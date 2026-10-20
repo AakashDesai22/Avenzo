@@ -12,7 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
 
-from app.cli.manage_admin import manage_admin
+from app.cli.manage_admin import bootstrap_initial_admin, manage_admin
 from app.core.security import hash_password, verify_password
 from app.models.user import Role, User
 from app.services.auth_service import ensure_roles_seeded
@@ -430,3 +430,199 @@ async def test_secrets_never_printed(db_session):
     assert secret_pass not in err
     assert "$2b$" not in out
     assert "$2b$" not in err
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_initial_admin_success(db_session):
+    """Test explicit one-time bootstrap command creating admin@avenzo.dev."""
+    email = "admin@avenzo.dev"
+    password = "CollegeAdminPass2026!"
+
+    res = await db_session.execute(select(User).where(User.email == email))
+    existing = res.scalars().first()
+    if existing:
+        await db_session.delete(existing)
+        await db_session.commit()
+
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+
+    success = await bootstrap_initial_admin(
+        session=db_session,
+        email=email,
+        password=password,
+        stdout=stdout,
+        stderr=stderr,
+    )
+
+    assert success is True
+    out = stdout.getvalue()
+    err = stderr.getvalue()
+
+    assert "Successfully bootstrapped initial administrator" in out
+    assert err == ""
+
+    # Verify user in database
+    res = await db_session.execute(
+        select(User).options(joinedload(User.role)).where(User.email == email)
+    )
+    user = res.scalars().first()
+    assert user is not None
+    assert user.email == email
+    assert user.role.name == "ADMIN"
+    assert user.user_type == "business"
+    assert user.is_active is True
+    assert verify_password(password, user.password_hash) is True
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_initial_admin_from_env(db_session):
+    """Test bootstrap reading password from INITIAL_ADMIN_PASSWORD environment variable."""
+    email = "admin@avenzo.dev"
+    env_password = "EnvPasswordSecret2026!"
+
+    res = await db_session.execute(select(User).where(User.email == email))
+    existing = res.scalars().first()
+    if existing:
+        await db_session.delete(existing)
+        await db_session.commit()
+
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+
+    with patch.dict("os.environ", {"INITIAL_ADMIN_PASSWORD": env_password}):
+        success = await bootstrap_initial_admin(
+            session=db_session,
+            email=email,
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+    assert success is True
+    res = await db_session.execute(select(User).where(User.email == email))
+    user = res.scalars().first()
+    assert user is not None
+    assert verify_password(env_password, user.password_hash) is True
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_duplicate_account_protection(db_session):
+    """Test that bootstrap never resets password or promotes an existing account silently."""
+    email = "admin@avenzo.dev"
+    original_password = "OriginalUntouchedPass123!"
+    new_attempt_password = "AttemptedResetPass999!"
+
+    await ensure_roles_seeded(db_session)
+    role_res = await db_session.execute(select(Role).where(Role.name == "ADMIN"))
+    admin_role = role_res.scalars().first()
+
+    res = await db_session.execute(select(User).where(User.email == email))
+    user = res.scalars().first()
+    if not user:
+        user = User(
+            email=email,
+            password_hash=hash_password(original_password),
+            first_name="Existing",
+            last_name="Admin",
+            role_id=admin_role.id,
+            user_type="business",
+            is_active=True,
+        )
+        db_session.add(user)
+        await db_session.commit()
+    else:
+        user.password_hash = hash_password(original_password)
+        await db_session.commit()
+
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+
+    # Attempt to run bootstrap on existing account
+    success = await bootstrap_initial_admin(
+        session=db_session,
+        email=email,
+        password=new_attempt_password,
+        stdout=stdout,
+        stderr=stderr,
+    )
+
+    assert success is False
+    out = stdout.getvalue()
+    err = stderr.getvalue()
+
+    assert "already exists" in out
+    assert "Initial bootstrap aborted without modifying existing account" in out
+    assert err == ""
+
+    # Verify password was NOT changed / overwritten
+    await db_session.refresh(user)
+    assert verify_password(original_password, user.password_hash) is True
+    assert verify_password(new_attempt_password, user.password_hash) is False
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_password_validation(db_session):
+    """Test password length and missing password validations in bootstrap."""
+    email = "admin_valid_test@avenzo.dev"
+
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+
+    # Too short password
+    success = await bootstrap_initial_admin(
+        session=db_session,
+        email=email,
+        password="short",
+        stdout=stdout,
+        stderr=stderr,
+    )
+    assert success is False
+    assert "must be at least 8 characters" in stderr.getvalue()
+
+    # Missing password in non-interactive environment
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    with patch("sys.stdin.isatty", return_value=False), patch.dict("os.environ", {}, clear=True):
+        success = await bootstrap_initial_admin(
+            session=db_session,
+            email=email,
+            password=None,
+            stdout=stdout,
+            stderr=stderr,
+        )
+    assert success is False
+    assert "must be supplied via INITIAL_ADMIN_PASSWORD" in stderr.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_secrets_never_printed(db_session):
+    """Ensure bootstrap never leaks plain password or password hash to stdout/stderr."""
+    email = "leak_check_bootstrap@avenzo.dev"
+    secret = "TopSecretBootstrapPassword999!"
+
+    res = await db_session.execute(select(User).where(User.email == email))
+    existing = res.scalars().first()
+    if existing:
+        await db_session.delete(existing)
+        await db_session.commit()
+
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+
+    success = await bootstrap_initial_admin(
+        session=db_session,
+        email=email,
+        password=secret,
+        stdout=stdout,
+        stderr=stderr,
+    )
+
+    assert success is True
+    out = stdout.getvalue()
+    err = stderr.getvalue()
+
+    assert secret not in out
+    assert secret not in err
+    assert "$2b$" not in out
+    assert "$2b$" not in err
+

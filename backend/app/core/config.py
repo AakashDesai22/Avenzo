@@ -4,9 +4,9 @@ Loads all environment variables using Pydantic Settings.
 Enforces production security rules when APP_ENV == "production".
 """
 
-from pydantic_settings import BaseSettings
+
 from pydantic import model_validator
-from typing import List
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     DATABASE_USER: str = "avenzo_user"
     DATABASE_PASSWORD: str = "password"
 
+    # Initial Admin Bootstrap (One-time setup for development / academic project)
+    INITIAL_ADMIN_EMAIL: str = "admin@avenzo.dev"
+    INITIAL_ADMIN_PASSWORD: str = ""
+    INITIAL_ADMIN_FIRST_NAME: str = "Admin"
+    INITIAL_ADMIN_LAST_NAME: str = "User"
+
     # JWT Authentication
     JWT_SECRET: str = "CHANGE_THIS_SECRET_IN_PRODUCTION_MINIMUM_32_CHARS"
     JWT_ALGORITHM: str = "HS256"
@@ -40,7 +46,7 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS_STR: str = "http://localhost:5173,http://localhost:3000"
 
     @property
-    def ALLOWED_ORIGINS(self) -> List[str]:
+    def ALLOWED_ORIGINS(self) -> list[str]:
         return [origin.strip() for origin in self.ALLOWED_ORIGINS_STR.split(",") if origin.strip()]
 
     # Inventory & Expiry Threshold Defaults (Centralized App-Level Config)
