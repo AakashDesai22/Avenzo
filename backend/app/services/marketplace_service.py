@@ -14,7 +14,7 @@ from sqlalchemy.orm import joinedload
 
 from app.core.date_utils import get_business_date
 from app.models.inventory import Batch, Inventory
-from app.models.product import Product
+from app.models.product import Category, Product
 from app.schemas.marketplace import MarketplaceProductRead
 
 
@@ -79,11 +79,17 @@ async def list_marketplace_products(
     """
     Lists consumer-facing marketplace products with aggregated available stock.
     Avoids N+1 query patterns by fetching product batch availability in a single SQL operation.
+    Only returns products that are published, active, non-deleted, and belong to an active category.
     """
     business_date = get_business_date()
 
-    # Base filter conditions for active, published, non-deleted products
-    filters = [Product.is_active == True, Product.is_published == True, Product.is_deleted == False]
+    # Base filter conditions for active, published, non-deleted products in active categories
+    filters = [
+        Product.is_active == True,
+        Product.is_published == True,
+        Product.is_deleted == False,
+        Product.category.has(Category.is_active == True),
+    ]
 
     if category_id:
         filters.append(Product.category_id == category_id)
@@ -152,7 +158,8 @@ async def list_marketplace_products(
         )
         marketplace_items.append(item)
 
-    return marketplace_items, total
+    effective_total = len(marketplace_items) if in_stock_only else total
+    return marketplace_items, effective_total
 
 
 async def get_marketplace_product_by_id(
@@ -160,7 +167,7 @@ async def get_marketplace_product_by_id(
 ) -> MarketplaceProductRead | None:
     """
     Gets detailed consumer marketplace product information including sellable stock.
-    Returns None if product is inactive, deleted, or non-existent.
+    Returns None if product is inactive, unpublished, deleted, or in an inactive category.
     """
     business_date = get_business_date()
 
@@ -170,7 +177,13 @@ async def get_marketplace_product_by_id(
             joinedload(Product.category),
             joinedload(Product.brand),
         )
-        .where(Product.id == product_id, Product.is_active == True, Product.is_published == True, Product.is_deleted == False)
+        .where(
+            Product.id == product_id,
+            Product.is_active == True,
+            Product.is_published == True,
+            Product.is_deleted == False,
+            Product.category.has(Category.is_active == True),
+        )
     )
 
     result = await session.execute(stmt)

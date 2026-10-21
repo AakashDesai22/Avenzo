@@ -350,3 +350,99 @@ async def test_marketplace_search_and_category_filter(
     cat_data = res_cat.json()["data"]
     assert any(p["id"] == str(prod_2.id) for p in cat_data)
     assert not any(p["id"] == str(prod_1.id) for p in cat_data)
+
+
+@pytest.mark.asyncio
+async def test_marketplace_inactive_category_excluded(
+    client: AsyncClient, db_session: AsyncSession, consumer_headers: dict
+):
+    """Products belonging to an inactive category must NOT appear in the marketplace."""
+    inactive_cat = Category(name="Discontinued Category", is_active=False)
+    db_session.add(inactive_cat)
+    await db_session.commit()
+
+    prod = Product(
+        name="Category Inactive Product",
+        sku="INACT-CAT-PROD",
+        category_id=inactive_cat.id,
+        unit_price=Decimal("15.00"),
+        is_active=True,
+        is_published=True,
+    )
+    db_session.add(prod)
+    await db_session.commit()
+
+    list_res = await client.get("/api/v1/marketplace/products", headers=consumer_headers)
+    assert list_res.status_code == 200
+    matched = [p for p in list_res.json()["data"] if p["id"] == str(prod.id)]
+    assert len(matched) == 0
+
+    detail_res = await client.get(
+        f"/api/v1/marketplace/products/{prod.id}", headers=consumer_headers
+    )
+    assert detail_res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_marketplace_in_stock_only_filter(
+    client: AsyncClient, db_session: AsyncSession, consumer_headers: dict
+):
+    """in_stock_only query parameter filters out products without sellable stock."""
+    from datetime import timedelta
+    today = get_business_date()
+    cat = Category(name="Stock Filter Category", is_active=True)
+    wh = Warehouse(name="Stock Filter Warehouse", city="Austin")
+    db_session.add_all([cat, wh])
+    await db_session.commit()
+
+    prod_in_stock = Product(
+        name="In Stock Item",
+        sku="STK-IN-001",
+        category_id=cat.id,
+        unit_price=Decimal("10.00"),
+        is_active=True,
+        is_published=True,
+        has_expiry=True,
+    )
+    prod_out_of_stock = Product(
+        name="Out of Stock Item",
+        sku="STK-OUT-001",
+        category_id=cat.id,
+        unit_price=Decimal("10.00"),
+        is_active=True,
+        is_published=True,
+        has_expiry=True,
+    )
+    db_session.add_all([prod_in_stock, prod_out_of_stock])
+    await db_session.commit()
+
+    batch = Batch(
+        product_id=prod_in_stock.id,
+        batch_number="B-STK-001",
+        expiry_date=today + timedelta(days=60),
+        status="active",
+    )
+    db_session.add(batch)
+    await db_session.commit()
+
+    inv = Inventory(
+        product_id=prod_in_stock.id,
+        batch_id=batch.id,
+        warehouse_id=wh.id,
+        quantity_on_hand=25,
+        quantity_reserved=0,
+    )
+    db_session.add(inv)
+    await db_session.commit()
+
+    # Query with in_stock_only=true and category_id filter
+    res = await client.get(
+        f"/api/v1/marketplace/products?category_id={cat.id}&in_stock_only=true",
+        headers=consumer_headers,
+    )
+    assert res.status_code == 200
+    data = res.json()["data"]
+    prod_ids = [p["id"] for p in data]
+    assert str(prod_in_stock.id) in prod_ids
+    assert str(prod_out_of_stock.id) not in prod_ids
+

@@ -65,6 +65,8 @@ venv.bak/
 *.db
 *.log
 *.dump
+backend/media/
+
 
 # Alembic
 alembic/versions/*.pyc

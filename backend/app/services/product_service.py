@@ -167,18 +167,44 @@ async def deactivate_product(session: AsyncSession, product_id: UUID) -> Product
     return await get_product_by_id(session, product_id)
 
 
-async def publish_product(session: AsyncSession, product_id: UUID) -> Product:
+async def publish_product(
+    session: AsyncSession, product_id: UUID, require_stock: bool = False
+) -> Product:
     """
     Publish a product to make it visible in the consumer marketplace.
-    Only active, non-deleted products may be published.
+    Validates product is active, non-deleted, category is active, has valid pricing,
+    and optionally validates sellable non-expired stock.
     """
     product = await get_product_by_id(session, product_id)
 
-    if not product.is_active:
+    if not product.is_active or getattr(product, "is_deleted", False):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Cannot publish an inactive product. Reactivate it first.",
+            detail=f"Cannot publish product '{product.name}': Product is inactive or deleted.",
         )
+
+    if product.category and not product.category.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot publish product '{product.name}': Category '{product.category.name}' is inactive. Please activate the category first.",
+        )
+
+    if product.unit_price is None or product.unit_price <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot publish product '{product.name}': Valid unit selling price greater than zero is required.",
+        )
+
+    if require_stock:
+        from app.services.marketplace_service import get_product_availability_map
+
+        avail_map = await get_product_availability_map(session, [product.id])
+        stock = avail_map.get(product.id, 0)
+        if stock <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot publish product '{product.name}' for consumer sale: No valid sellable stock available in active, non-expired batches.",
+            )
 
     product.is_published = True
     await session.commit()

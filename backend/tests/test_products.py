@@ -1,4 +1,4 @@
-﻿"""
+"""
 AVENZO Backend — Product Master, Publish Workflow & Marketplace Filtering Test Suite
 """
 
@@ -219,15 +219,56 @@ async def test_list_products_is_published_filter(client: AsyncClient, admin_head
     await client.post(f"/api/v1/products/{pub_id}/publish", headers=admin_headers)
 
     # Filter published only
-    pub_filter = await client.get("/api/v1/products?is_published=true")
+    pub_filter = await client.get(f"/api/v1/products?is_published=true&category_id={cat_id}")
     assert pub_filter.status_code == 200
     pub_ids = [p["id"] for p in pub_filter.json()["data"]]
     assert pub_id in pub_ids
     assert draft_id not in pub_ids
 
     # Filter drafts only
-    draft_filter = await client.get("/api/v1/products?is_published=false")
+    draft_filter = await client.get(f"/api/v1/products?is_published=false&category_id={cat_id}")
     assert draft_filter.status_code == 200
     draft_ids = [p["id"] for p in draft_filter.json()["data"]]
     assert draft_id in draft_ids
     assert pub_id not in draft_ids
+
+
+@pytest.mark.asyncio
+async def test_publish_product_validations(client: AsyncClient, admin_headers: dict):
+    """Publish endpoint validates active category and optional sellable stock requirement."""
+    # 1. Product in inactive category cannot be published
+    cat_res = await client.post(
+        "/api/v1/categories", json={"name": "Inactive Pub Cat", "is_active": False}, headers=admin_headers
+    )
+    assert cat_res.status_code == 201
+    inact_cat_id = cat_res.json()["data"]["id"]
+
+    prod_res = await client.post(
+        "/api/v1/products",
+        json={"name": "Valid Prod Inactive Cat", "sku": "PUB-VAL-001", "category_id": inact_cat_id, "unit_price": "10.00"},
+        headers=admin_headers,
+    )
+    assert prod_res.status_code == 201
+    prod_id = prod_res.json()["data"]["id"]
+
+    pub_fail = await client.post(f"/api/v1/products/{prod_id}/publish", headers=admin_headers)
+    assert pub_fail.status_code == 400
+    assert "category" in pub_fail.json()["detail"].lower()
+
+    # 2. require_stock=true fails when product has no inventory
+    act_cat = await client.post("/api/v1/categories", json={"name": "Active Pub Cat"}, headers=admin_headers)
+    act_cat_id = act_cat.json()["data"]["id"]
+
+    no_stock_prod = await client.post(
+        "/api/v1/products",
+        json={"name": "Zero Stock Product", "sku": "PUB-VAL-002", "category_id": act_cat_id, "unit_price": "10.00"},
+        headers=admin_headers,
+    )
+    no_stock_id = no_stock_prod.json()["data"]["id"]
+
+    stock_fail = await client.post(
+        f"/api/v1/products/{no_stock_id}/publish?require_stock=true", headers=admin_headers
+    )
+    assert stock_fail.status_code == 400
+    assert "stock" in stock_fail.json()["detail"].lower()
+

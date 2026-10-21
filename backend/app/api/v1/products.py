@@ -127,14 +127,15 @@ async def deactivate_product(
 @router.post("/{product_id}/publish", response_model=ApiResponse[ProductRead])
 async def publish_product_endpoint(
     product_id: UUID,
+    require_stock: bool = Query(default=False, description="Require valid sellable stock before publishing"),
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles(["ADMIN", "BUSINESS_MANAGER"])),
 ):
     """
     Publish a product to make it visible in the consumer marketplace (Admin/Manager only).
-    Product must be active. Drafts are hidden from consumers.
+    Product and category must be active, with valid positive pricing.
     """
-    product = await publish_product(session, product_id)
+    product = await publish_product(session, product_id, require_stock=require_stock)
     return ApiResponse(
         success=True,
         data=ProductRead.model_validate(product),
