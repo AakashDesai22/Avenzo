@@ -12,6 +12,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
+from app.core.date_utils import get_business_date
 from app.models.pantry import ConsumerPantry, PantryItem, PantryItemLog
 from app.models.product import Category, Product
 from app.models.inventory import Batch
@@ -29,13 +30,14 @@ async def test_pantry_item_crud_and_ownership_isolation(
     consumer ownership isolation (rejects cross-consumer access).
     """
     # 1. Add item to Consumer Pantry via POST /api/v1/pantry
+    today = get_business_date()
     payload = {
         "custom_name": "Organic Milk 1L",
         "quantity": "2.0",
         "unit": "liters",
         "storage_location": "fridge",
-        "purchase_date": date.today().isoformat(),
-        "expiry_date": (date.today() + timedelta(days=15)).isoformat(),
+        "purchase_date": today.isoformat(),
+        "expiry_date": (today + timedelta(days=15)).isoformat(),
         "notes": "Keep refrigerated",
     }
     response = await client.post("/api/v1/pantry", json=payload, headers=consumer_headers)
