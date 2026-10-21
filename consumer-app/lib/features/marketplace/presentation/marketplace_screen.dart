@@ -66,7 +66,55 @@ class MarketplaceScreen extends ConsumerWidget {
             ),
           ),
 
-          // Filters Row
+          // Categories Horizontal Filter Chips
+          if (state.categories.isNotEmpty)
+            SizedBox(
+              height: 38,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: const Text('All'),
+                      selected: state.selectedCategoryId == null,
+                      onSelected: (_) => notifier.selectCategory(null),
+                      selectedColor: AppColors.primaryLight,
+                      labelStyle: TextStyle(
+                        color: state.selectedCategoryId == null
+                            ? AppColors.primary
+                            : AppColors.textPrimary,
+                        fontWeight: state.selectedCategoryId == null
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  ...state.categories.map((category) {
+                    final isSelected = state.selectedCategoryId == category.id;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(category.name),
+                        selected: isSelected,
+                        onSelected: (_) => notifier.selectCategory(category.id),
+                        selectedColor: AppColors.primaryLight,
+                        labelStyle: TextStyle(
+                          color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 13,
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          if (state.categories.isNotEmpty) const SizedBox(height: 8),
+
+          // Filters Row (In Stock Only)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
@@ -121,7 +169,7 @@ class MarketplaceScreen extends ConsumerWidget {
                             ),
                           )
                         : RefreshIndicator(
-                            onRefresh: notifier.loadProducts,
+                            onRefresh: notifier.refresh,
                             child: GridView.builder(
                               padding: const EdgeInsets.all(16),
                               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -175,10 +223,28 @@ class _ProductCard extends ConsumerWidget {
                     ? Image.network(
                         product.imageUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(
-                          Icons.inventory_2_outlined,
-                          size: 48,
-                          color: AppColors.textSecondary,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                    : null,
+                              ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (_, __, ___) => const Center(
+                          child: Icon(
+                            Icons.inventory_2_outlined,
+                            size: 48,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       )
                     : const Icon(

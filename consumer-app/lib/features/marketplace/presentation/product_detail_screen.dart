@@ -91,10 +91,28 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                   ? Image.network(
                                       _product!.imageUrl!,
                                       fit: BoxFit.contain,
-                                      errorBuilder: (_, __, ___) => const Icon(
-                                        Icons.inventory_2_outlined,
-                                        size: 64,
-                                        color: AppColors.textSecondary,
+                                      loadingBuilder: (context, child, loadingProgress) {
+                                        if (loadingProgress == null) return child;
+                                        return Center(
+                                          child: SizedBox(
+                                            width: 32,
+                                            height: 32,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              value: loadingProgress.expectedTotalBytes != null
+                                                  ? loadingProgress.cumulativeBytesLoaded /
+                                                      loadingProgress.expectedTotalBytes!
+                                                  : null,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      errorBuilder: (_, __, ___) => const Center(
+                                        child: Icon(
+                                          Icons.inventory_2_outlined,
+                                          size: 64,
+                                          color: AppColors.textSecondary,
+                                        ),
                                       ),
                                     )
                                   : const Icon(

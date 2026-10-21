@@ -2,11 +2,14 @@ import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/marketplace_repository.dart';
+import '../domain/category_model.dart';
 import '../domain/marketplace_product_model.dart';
 
 class MarketplaceState extends Equatable {
   final bool isLoading;
+  final bool isCategoriesLoading;
   final List<MarketplaceProductModel> products;
+  final List<CategoryModel> categories;
   final String searchQuery;
   final String? selectedCategoryId;
   final bool inStockOnly;
@@ -14,7 +17,9 @@ class MarketplaceState extends Equatable {
 
   const MarketplaceState({
     this.isLoading = false,
+    this.isCategoriesLoading = false,
     this.products = const [],
+    this.categories = const [],
     this.searchQuery = '',
     this.selectedCategoryId,
     this.inStockOnly = false,
@@ -23,7 +28,9 @@ class MarketplaceState extends Equatable {
 
   MarketplaceState copyWith({
     bool? isLoading,
+    bool? isCategoriesLoading,
     List<MarketplaceProductModel>? products,
+    List<CategoryModel>? categories,
     String? searchQuery,
     String? selectedCategoryId,
     bool clearCategory = false,
@@ -33,7 +40,9 @@ class MarketplaceState extends Equatable {
   }) {
     return MarketplaceState(
       isLoading: isLoading ?? this.isLoading,
+      isCategoriesLoading: isCategoriesLoading ?? this.isCategoriesLoading,
       products: products ?? this.products,
+      categories: categories ?? this.categories,
       searchQuery: searchQuery ?? this.searchQuery,
       selectedCategoryId: clearCategory ? null : (selectedCategoryId ?? this.selectedCategoryId),
       inStockOnly: inStockOnly ?? this.inStockOnly,
@@ -44,7 +53,9 @@ class MarketplaceState extends Equatable {
   @override
   List<Object?> get props => [
         isLoading,
+        isCategoriesLoading,
         products,
+        categories,
         searchQuery,
         selectedCategoryId,
         inStockOnly,
@@ -65,7 +76,19 @@ class MarketplaceNotifier extends StateNotifier<MarketplaceState> {
   MarketplaceNotifier({required MarketplaceRepository repository})
       : _repository = repository,
         super(const MarketplaceState()) {
+    loadCategories();
     loadProducts();
+  }
+
+  /// Loads active categories for marketplace filtering.
+  Future<void> loadCategories() async {
+    state = state.copyWith(isCategoriesLoading: true);
+    try {
+      final list = await _repository.getCategories();
+      state = state.copyWith(isCategoriesLoading: false, categories: list);
+    } catch (_) {
+      state = state.copyWith(isCategoriesLoading: false);
+    }
   }
 
   /// Loads marketplace products with active state filters.
@@ -84,6 +107,14 @@ class MarketplaceNotifier extends StateNotifier<MarketplaceState> {
         errorMessage: 'Failed to load products. Please check your connection.',
       );
     }
+  }
+
+  /// Refreshes both categories and product catalog (used by pull-to-refresh).
+  Future<void> refresh() async {
+    await Future.wait([
+      loadCategories(),
+      loadProducts(),
+    ]);
   }
 
   /// Updates search query with 300ms debounce.
@@ -119,3 +150,4 @@ class MarketplaceNotifier extends StateNotifier<MarketplaceState> {
     super.dispose();
   }
 }
+

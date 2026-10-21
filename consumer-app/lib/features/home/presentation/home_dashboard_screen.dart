@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../marketplace/providers/marketplace_provider.dart';
 import '../../notifications/providers/notification_provider.dart';
 
 /// Consumer Home Dashboard Screen
@@ -53,9 +54,17 @@ class HomeDashboardScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await Future.wait([
+            ref.read(marketplaceNotifierProvider.notifier).refresh(),
+            ref.read(notificationsProvider.notifier).fetchData(),
+          ]);
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Welcome Card
@@ -299,7 +308,8 @@ class HomeDashboardScreen extends ConsumerWidget {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }
 

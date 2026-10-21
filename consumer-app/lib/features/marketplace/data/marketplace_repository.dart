@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
+import '../domain/category_model.dart';
 import '../domain/marketplace_product_model.dart';
 
 final marketplaceRepositoryProvider = Provider<MarketplaceRepository>((ref) {
@@ -11,6 +12,24 @@ class MarketplaceRepository {
   final ApiClient _apiClient;
 
   MarketplaceRepository({required ApiClient apiClient}) : _apiClient = apiClient;
+
+  /// Fetches active product categories (`/api/v1/categories?active_only=true`).
+  Future<List<CategoryModel>> getCategories({bool activeOnly = true}) async {
+    final response = await _apiClient.get(
+      '/categories',
+      queryParameters: {'active_only': activeOnly},
+    );
+
+    if (response.statusCode == 200 && response.data != null) {
+      final body = response.data as Map<String, dynamic>;
+      final rawList = body['data'] as List<dynamic>? ?? [];
+      return rawList
+          .map((item) => CategoryModel.fromJson(item as Map<String, dynamic>))
+          .toList();
+    }
+
+    return [];
+  }
 
   /// Fetches consumer marketplace catalog products with filters and pagination.
   Future<List<MarketplaceProductModel>> getProducts({
@@ -62,3 +81,4 @@ class MarketplaceRepository {
     return null;
   }
 }
+

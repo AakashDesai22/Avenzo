@@ -71,7 +71,7 @@ class ProductLookupRepository {
 
     try {
       final response = await _apiClient.get(
-        '/api/v1/products',
+        '/products',
         queryParameters: {'barcode': cleanBarcode},
       );
 
@@ -82,7 +82,7 @@ class ProductLookupRepository {
 
       // Fallback search parameter if explicit barcode match was empty
       final fallbackResponse = await _apiClient.get(
-        '/api/v1/products',
+        '/products',
         queryParameters: {'search': cleanBarcode},
       );
 
