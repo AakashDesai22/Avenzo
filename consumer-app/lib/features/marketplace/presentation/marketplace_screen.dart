@@ -135,39 +135,115 @@ class MarketplaceScreen extends ConsumerWidget {
           Expanded(
             child: state.isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : state.errorMessage != null
+                : state.isAuthError
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.error_outline, size: 48, color: AppColors.critical),
-                            const SizedBox(height: 12),
-                            Text(
-                              state.errorMessage!,
-                              style: const TextStyle(color: AppColors.textSecondary),
+                            const Icon(Icons.lock_outline, size: 52, color: AppColors.primary),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Sign In Required',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                             ),
-                            const SizedBox(height: 12),
-                            ElevatedButton(
-                              onPressed: notifier.loadProducts,
-                              child: const Text('Retry'),
+                            const SizedBox(height: 8),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 32),
+                              child: Text(
+                                state.errorMessage!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: AppColors.textSecondary),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: () => context.push('/login'),
+                              icon: const Icon(Icons.login),
+                              label: const Text('Sign In'),
                             ),
                           ],
                         ),
                       )
-                    : state.products.isEmpty
-                        ? const Center(
+                    : state.isNetworkError
+                        ? Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.shopping_bag_outlined, size: 48, color: AppColors.textSecondary),
-                                SizedBox(height: 12),
-                                Text(
-                                  'No products found matching your search.',
-                                  style: TextStyle(color: AppColors.textSecondary),
+                                const Icon(Icons.wifi_off_outlined, size: 52, color: AppColors.warning),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Connection Error',
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                ),
+                                const SizedBox(height: 8),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                                  child: Text(
+                                    state.errorMessage!,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(color: AppColors.textSecondary),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton.icon(
+                                  onPressed: notifier.loadProducts,
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Retry'),
                                 ),
                               ],
                             ),
                           )
+                        : state.errorMessage != null
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.error_outline, size: 48, color: AppColors.critical),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      state.errorMessage!,
+                                      style: const TextStyle(color: AppColors.textSecondary),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    ElevatedButton(
+                                      onPressed: notifier.loadProducts,
+                                      child: const Text('Retry'),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : state.products.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.shopping_bag_outlined, size: 52, color: AppColors.textSecondary),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          state.searchQuery.isNotEmpty
+                                              ? 'No products matching "${state.searchQuery}"'
+                                              : 'No products found matching your search.',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.textPrimary,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        const Text(
+                                          'Check back soon or try adjusting your search filters.',
+                                          style: TextStyle(color: AppColors.textSecondary),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        OutlinedButton.icon(
+                                          onPressed: notifier.refresh,
+                                          icon: const Icon(Icons.refresh),
+                                          label: const Text('Refresh Catalog'),
+                                        ),
+                                      ],
+                                    ),
+                                  )
                         : RefreshIndicator(
                             onRefresh: notifier.refresh,
                             child: GridView.builder(

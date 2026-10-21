@@ -445,6 +445,7 @@ class _CategoryNavigationSection extends StatelessWidget {
                 return _CategoryItemTile(
                   name: category.name,
                   icon: iconData,
+                  imageUrl: category.imageUrl,
                   color: _mapCategoryColor(category.name),
                   onTap: () => onCategorySelected(category.id),
                 );
@@ -503,18 +504,22 @@ class _CategoryNavigationSection extends StatelessWidget {
 class _CategoryItemTile extends StatelessWidget {
   final String name;
   final IconData icon;
+  final String? imageUrl;
   final Color color;
   final VoidCallback onTap;
 
   const _CategoryItemTile({
     required this.name,
     required this.icon,
+    this.imageUrl,
     required this.color,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final hasValidImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+
     return Container(
       width: 72,
       margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -531,7 +536,18 @@ class _CategoryItemTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: color.withValues(alpha: 0.2)),
               ),
-              child: Icon(icon, color: color, size: 26),
+              child: hasValidImage
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: Image.network(
+                        imageUrl!.startsWith('http')
+                            ? imageUrl!
+                            : '${AppConstants.apiBaseUrl}${imageUrl!.startsWith('/') ? '' : '/'}${imageUrl!}',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Icon(icon, color: color, size: 26),
+                      ),
+                    )
+                  : Icon(icon, color: color, size: 26),
             ),
             const SizedBox(height: 6),
             Text(

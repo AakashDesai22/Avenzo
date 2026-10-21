@@ -132,14 +132,43 @@ class _OrderConfirmationScreenState extends ConsumerState<OrderConfirmationScree
                       ),
                       const SizedBox(height: 24),
 
+                      // Demo purchase sync banner
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.inventory_2_outlined, color: AppColors.primary, size: 24),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Demo purchase completed! Stock was deducted using FEFO and your items are now tracked in My Pantry with exact expiry dates.',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
                       // CTAs
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: () => context.go('/orders/my/${_order!.id}'),
-                          icon: const Icon(Icons.receipt_long),
-                          label: const Text('View Order Details'),
+                          onPressed: () => context.go('/pantry'),
+                          icon: const Icon(Icons.kitchen_rounded),
+                          label: const Text('Go to My Pantry'),
                           style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -151,14 +180,26 @@ class _OrderConfirmationScreenState extends ConsumerState<OrderConfirmationScree
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
-                          onPressed: () => context.go('/marketplace'),
-                          icon: const Icon(Icons.storefront),
-                          label: const Text('Continue Shopping'),
+                          onPressed: () => context.go('/orders/my/${_order!.id}'),
+                          icon: const Icon(Icons.receipt_long),
+                          label: const Text('View Order Details'),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton.icon(
+                          onPressed: () => context.go('/marketplace'),
+                          icon: const Icon(Icons.storefront),
+                          label: const Text('Continue Shopping'),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                         ),
                       ),

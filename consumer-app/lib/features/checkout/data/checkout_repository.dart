@@ -26,6 +26,7 @@ class CheckoutRepository {
         'shipping_address': shippingAddress,
         'notes': notes,
         'payment_method': paymentMethod,
+        'demo_purchase': true,
       },
       options: Options(
         headers: {

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/network/api_exception.dart';
 import '../data/marketplace_repository.dart';
 import '../domain/category_model.dart';
 import '../domain/marketplace_product_model.dart';
@@ -14,6 +15,8 @@ class MarketplaceState extends Equatable {
   final String? selectedCategoryId;
   final bool inStockOnly;
   final String? errorMessage;
+  final bool isAuthError;
+  final bool isNetworkError;
 
   const MarketplaceState({
     this.isLoading = false,
@@ -24,6 +27,8 @@ class MarketplaceState extends Equatable {
     this.selectedCategoryId,
     this.inStockOnly = false,
     this.errorMessage,
+    this.isAuthError = false,
+    this.isNetworkError = false,
   });
 
   MarketplaceState copyWith({
@@ -37,6 +42,8 @@ class MarketplaceState extends Equatable {
     bool? inStockOnly,
     String? errorMessage,
     bool clearError = false,
+    bool? isAuthError,
+    bool? isNetworkError,
   }) {
     return MarketplaceState(
       isLoading: isLoading ?? this.isLoading,
@@ -47,6 +54,8 @@ class MarketplaceState extends Equatable {
       selectedCategoryId: clearCategory ? null : (selectedCategoryId ?? this.selectedCategoryId),
       inStockOnly: inStockOnly ?? this.inStockOnly,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      isAuthError: clearError ? false : (isAuthError ?? this.isAuthError),
+      isNetworkError: clearError ? false : (isNetworkError ?? this.isNetworkError),
     );
   }
 
@@ -60,6 +69,8 @@ class MarketplaceState extends Equatable {
         selectedCategoryId,
         inStockOnly,
         errorMessage,
+        isAuthError,
+        isNetworkError,
       ];
 }
 
@@ -91,7 +102,7 @@ class MarketplaceNotifier extends StateNotifier<MarketplaceState> {
     }
   }
 
-  /// Loads marketplace products with active state filters.
+  /// Loads marketplace products with active state filters and maps specific error states.
   Future<void> loadProducts() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
@@ -102,9 +113,39 @@ class MarketplaceNotifier extends StateNotifier<MarketplaceState> {
       );
       state = state.copyWith(isLoading: false, products: list);
     } catch (e) {
+      if (e is ApiException) {
+        if (e.statusCode == 401 || e.statusCode == 403) {
+          state = state.copyWith(
+            isLoading: false,
+            errorMessage: 'Please sign in to browse the marketplace and add items to your cart.',
+            isAuthError: true,
+            isNetworkError: false,
+          );
+          return;
+        }
+        if (e.statusCode == 408 || e.statusCode == 503 || e.message.toLowerCase().contains('connect') || e.message.toLowerCase().contains('timed out')) {
+          state = state.copyWith(
+            isLoading: false,
+            errorMessage: 'Failed to load products. Please check your connection.',
+            isAuthError: false,
+            isNetworkError: true,
+          );
+          return;
+        }
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: e.message,
+          isAuthError: false,
+          isNetworkError: false,
+        );
+        return;
+      }
+
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Failed to load products. Please check your connection.',
+        isAuthError: false,
+        isNetworkError: true,
       );
     }
   }

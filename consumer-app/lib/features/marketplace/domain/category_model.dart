@@ -6,6 +6,7 @@ class CategoryModel extends Equatable {
   final String name;
   final String? parentId;
   final String? description;
+  final String? imageUrl;
   final bool isActive;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -15,6 +16,7 @@ class CategoryModel extends Equatable {
     required this.name,
     this.parentId,
     this.description,
+    this.imageUrl,
     this.isActive = true,
     this.createdAt,
     this.updatedAt,
@@ -26,6 +28,7 @@ class CategoryModel extends Equatable {
       name: json['name'] as String? ?? 'General',
       parentId: json['parent_id'] as String?,
       description: json['description'] as String?,
+      imageUrl: json['image_url'] as String?,
       isActive: json['is_active'] as bool? ?? true,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())
@@ -42,6 +45,7 @@ class CategoryModel extends Equatable {
       'name': name,
       'parent_id': parentId,
       'description': description,
+      'image_url': imageUrl,
       'is_active': isActive,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
@@ -54,6 +58,7 @@ class CategoryModel extends Equatable {
         name,
         parentId,
         description,
+        imageUrl,
         isActive,
         createdAt,
         updatedAt,
