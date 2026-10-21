@@ -22,7 +22,7 @@ export type OrderFulfillmentStatus =
   | 'SHIPPED'
   | 'DELIVERED';
 
-export type PaymentStatus = 'UNPAID' | 'PAID' | 'REFUNDED';
+export type PaymentStatus = 'UNPAID' | 'PAID' | 'DEMO_COMPLETED' | 'REFUNDED';
 export type PaymentMethod = 'MOCK_PAYMENT' | 'COD';
 
 export interface OrderBatchAllocation {

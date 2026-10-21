@@ -12,6 +12,7 @@ class CategoryCreate(BaseModel):
     name: str = Field(..., max_length=150)
     parent_id: Optional[UUID] = None
     description: Optional[str] = None
+    image_url: Optional[str] = Field(None, max_length=500)
     is_active: bool = True
 
 
@@ -19,6 +20,7 @@ class CategoryUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=150)
     parent_id: Optional[UUID] = None
     description: Optional[str] = None
+    image_url: Optional[str] = Field(None, max_length=500)
     is_active: Optional[bool] = None
 
 
@@ -29,6 +31,7 @@ class CategoryRead(BaseModel):
     name: str
     parent_id: Optional[UUID] = None
     description: Optional[str] = None
+    image_url: Optional[str] = None
     is_active: bool
     created_at: datetime
     updated_at: datetime

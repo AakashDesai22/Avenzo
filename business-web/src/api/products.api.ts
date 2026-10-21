@@ -2,8 +2,22 @@
  * AVENZO Business Web — Products & Categories API Wrapper
  */
 
-import { apiGet, apiPost, apiPut, apiDelete, ApiResponse } from './client';
+import { apiGet, apiPost, apiPut, apiDelete, apiUpload, ApiResponse } from './client';
 import { Product, ProductCreate, ProductUpdate, Category, CategoryCreate, CategoryUpdate } from '../types/products';
+
+export async function uploadImageApi(file: File, folder?: string): Promise<ApiResponse<{
+  image_url: string;
+  public_id: string;
+  format: string;
+  width: number;
+  height: number;
+  size_bytes: number;
+}>> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const path = folder ? `/uploads/image?folder=${encodeURIComponent(folder)}` : '/uploads/image';
+  return apiUpload(path, formData);
+}
 
 export async function getProductsApi(params?: {
   search?: string;

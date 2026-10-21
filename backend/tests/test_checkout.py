@@ -19,6 +19,9 @@ from app.models.inventory import Inventory, Batch, InventoryTransaction
 from app.models.warehouse import Warehouse
 from app.models.order import Order, OrderItem
 from app.models.cart import Cart
+from app.models.pantry import ConsumerPantry, PantryItem, PantryItemLog
+from app.core.security import create_access_token
+from tests.conftest import _create_test_user_with_role
 
 
 @pytest.mark.asyncio
@@ -336,3 +339,194 @@ async def test_checkout_idempotency_key_prevents_duplicate_orders(
     # Verify inventory was ONLY reserved ONCE (2 units reserved)
     await db_session.refresh(inventory)
     assert inventory.quantity_reserved == 2
+
+
+@pytest.mark.asyncio
+async def test_demo_purchase_atomic_flow_fefo_and_pantry_sync(
+    client: AsyncClient, db_session: AsyncSession, consumer_headers: dict
+):
+    """
+    Demo purchase atomically executes:
+    1. Validates published status and prices
+    2. FEFO allocation across multiple batches (earliest-expiring batch first)
+    3. Physical warehouse stock deduction (quantity_on_hand -= qty) and SALE audit log
+    4. Synchronous creation of distinct PantryItem records for each batch allocation with exact expiry dates
+    5. Order status = DELIVERED, payment_status = DEMO_COMPLETED, delivery_fee = $0.00
+    6. Cart converted
+    """
+    today = get_business_date()
+
+    cat = Category(name="Fresh Dairy", is_active=True)
+    db_session.add(cat)
+    await db_session.commit()
+
+    product = Product(
+        name="Organic Whole Milk 1L",
+        sku="CHK-MILK-DEMO-01",
+        category_id=cat.id,
+        unit_price=Decimal("4.50"),
+        cost_price=Decimal("2.50"),
+        has_expiry=True,
+        is_active=True,
+        is_published=True,
+        unit_of_measure="bottles",
+    )
+    wh = Warehouse(name="Central Distribution Wh", city="Austin")
+    db_session.add_all([product, wh])
+    await db_session.commit()
+
+    # Batch 1: Expires in 10 days, 10 units available (earliest expiry)
+    batch_early = Batch(
+        product_id=product.id,
+        batch_number="BATCH-MILK-EARLY",
+        expiry_date=today + timedelta(days=10),
+        status="active",
+    )
+    # Batch 2: Expires in 30 days, 20 units available (later expiry)
+    batch_later = Batch(
+        product_id=product.id,
+        batch_number="BATCH-MILK-LATER",
+        expiry_date=today + timedelta(days=30),
+        status="active",
+    )
+    db_session.add_all([batch_early, batch_later])
+    await db_session.commit()
+
+    inv_early = Inventory(
+        product_id=product.id,
+        batch_id=batch_early.id,
+        warehouse_id=wh.id,
+        quantity_on_hand=10,
+        quantity_reserved=0,
+    )
+    inv_later = Inventory(
+        product_id=product.id,
+        batch_id=batch_later.id,
+        warehouse_id=wh.id,
+        quantity_on_hand=20,
+        quantity_reserved=0,
+    )
+    db_session.add_all([inv_early, inv_later])
+    await db_session.commit()
+
+    # Dedicated consumer user for demo purchase to prevent side-effects on other analytics tests
+    demo_user = await _create_test_user_with_role(db_session, "demo_purchase_consumer@avenzo.dev", "CONSUMER")
+    demo_token = create_access_token(subject=str(demo_user.id), role="CONSUMER")
+    demo_headers = {"Authorization": f"Bearer {demo_token}"}
+
+    # Consumer clears cart and adds 14 units (requires 10 from early batch + 4 from later batch)
+    await client.delete("/api/v1/cart", headers=demo_headers)
+    add_res = await client.post(
+        "/api/v1/cart/items", json={"product_id": str(product.id), "quantity": 14}, headers=demo_headers
+    )
+    assert add_res.status_code == 201
+
+    checkout_payload = {
+        "shipping_address": "456 Consumer St, Austin TX",
+        "notes": "Demo purchase test",
+        "payment_method": "MOCK_PAYMENT",
+        "demo_purchase": True,
+    }
+    res = await client.post("/api/v1/orders", json=checkout_payload, headers=demo_headers)
+    assert res.status_code == 201
+    order_data = res.json()["data"]
+
+    # 1. Order details verified
+    assert order_data["status"] == "DELIVERED"
+    assert order_data["payment_status"] == "DEMO_COMPLETED"
+    assert Decimal(str(order_data["delivery_fee"])) == Decimal("0.00")
+    assert Decimal(str(order_data["subtotal"])) == Decimal("63.00")
+    assert Decimal(str(order_data["total_amount"])) == Decimal("63.00")
+
+    # 2. Allocations verified
+    item_allocs = order_data["items"][0]["allocations"]
+    assert len(item_allocs) == 2
+    # First allocation: 10 units from early batch
+    assert item_allocs[0]["allocated_quantity"] == 10
+    assert item_allocs[0]["batch_number"] == "BATCH-MILK-EARLY"
+    # Second allocation: 4 units from later batch
+    assert item_allocs[1]["allocated_quantity"] == 4
+    assert item_allocs[1]["batch_number"] == "BATCH-MILK-LATER"
+
+    # 3. Warehouse stock physically deducted
+    await db_session.refresh(inv_early)
+    await db_session.refresh(inv_later)
+    assert inv_early.quantity_on_hand == 0
+    assert inv_later.quantity_on_hand == 16
+
+    # 4. Consumer pantry items created with distinct batch expiries
+    pantry_stmt = (
+        select(PantryItem)
+        .where(PantryItem.product_id == product.id)
+        .order_by(PantryItem.expiry_date.asc())
+    )
+    pantry_res = await db_session.execute(pantry_stmt)
+    pantry_items = pantry_res.scalars().all()
+    assert len(pantry_items) == 2
+
+    # Early batch item in pantry
+    assert pantry_items[0].quantity == 10
+    assert pantry_items[0].unit == "bottles"
+    assert pantry_items[0].batch_id == batch_early.id
+    assert pantry_items[0].expiry_date == today + timedelta(days=10)
+
+    # Later batch item in pantry
+    assert pantry_items[1].quantity == 4
+    assert pantry_items[1].unit == "bottles"
+    assert pantry_items[1].batch_id == batch_later.id
+    assert pantry_items[1].expiry_date == today + timedelta(days=30)
+
+    # 5. Audit logs in PantryItemLog
+    for pi in pantry_items:
+        log_res = await db_session.execute(
+            select(PantryItemLog).where(PantryItemLog.pantry_item_id == pi.id)
+        )
+        logs = log_res.scalars().all()
+        assert len(logs) == 1
+        assert logs[0].action == "SYNCED_FROM_ORDER"
+
+
+@pytest.mark.asyncio
+async def test_demo_purchase_draft_product_rejected(
+    client: AsyncClient, db_session: AsyncSession, consumer_headers: dict
+):
+    """Demo purchase strictly rejects unpublished (draft) products."""
+    today = get_business_date()
+    cat = Category(name="Draft Category", is_active=True)
+    db_session.add(cat)
+    await db_session.commit()
+
+    product = Product(
+        name="Unpublished Snack Bar",
+        sku="CHK-DRAFT-001",
+        category_id=cat.id,
+        unit_price=Decimal("3.00"),
+        has_expiry=False,
+        is_active=True,
+        is_published=False,  # DRAFT!
+    )
+    wh = Warehouse(name="Austin Warehouse Draft", city="Austin")
+    db_session.add_all([product, wh])
+    await db_session.commit()
+
+    batch = Batch(product_id=product.id, batch_number="B-DRAFT-01", status="active")
+    db_session.add(batch)
+    await db_session.commit()
+
+    inv = Inventory(product_id=product.id, batch_id=batch.id, warehouse_id=wh.id, quantity_on_hand=50)
+    db_session.add(inv)
+    await db_session.commit()
+
+    await client.delete("/api/v1/cart", headers=consumer_headers)
+    await client.post(
+        "/api/v1/cart/items", json={"product_id": str(product.id), "quantity": 1}, headers=consumer_headers
+    )
+
+    res = await client.post(
+        "/api/v1/orders",
+        json={"shipping_address": "123 Test Rd", "demo_purchase": True},
+        headers=consumer_headers,
+    )
+    assert res.status_code == 400
+    assert "draft" in res.json()["detail"].lower()
+

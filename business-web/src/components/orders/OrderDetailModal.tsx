@@ -231,8 +231,18 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, onClo
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span>Payment Status:</span>
-                  <span style={{ fontWeight: 600, color: order.payment_status === 'PAID' ? '#4ade80' : '#f87171' }}>
-                    {order.payment_status}
+                  <span
+                    style={{
+                      fontWeight: 600,
+                      color:
+                        order.payment_status === 'PAID'
+                          ? '#4ade80'
+                          : order.payment_status === 'DEMO_COMPLETED'
+                          ? '#38bdf8'
+                          : '#f87171',
+                    }}
+                  >
+                    {order.payment_status === 'DEMO_COMPLETED' ? 'DEMO COMPLETED' : order.payment_status}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #334155', paddingTop: '0.25rem', marginTop: '0.25rem' }}>

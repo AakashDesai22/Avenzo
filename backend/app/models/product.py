@@ -18,6 +18,7 @@ class Category(Base, UUIDMixin, TimestampMixin):
     name = Column(String(150), nullable=False, index=True)
     parent_id = Column(UUID(as_uuid=True), ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
     description = Column(Text, nullable=True)
+    image_url = Column(String(500), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
 
     parent = relationship("Category", remote_side="Category.id", backref="subcategories")

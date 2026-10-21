@@ -28,6 +28,7 @@ async def create_category(session: AsyncSession, data: CategoryCreate) -> Catego
         name=data.name,
         parent_id=data.parent_id,
         description=data.description,
+        image_url=data.image_url,
         is_active=data.is_active,
     )
     session.add(category)

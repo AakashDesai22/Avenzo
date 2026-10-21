@@ -84,6 +84,12 @@ class Settings(BaseSettings):
     # Expiry Monitoring Internal Trigger Secret
     EXPIRY_MONITOR_SECRET: str = "dev-only-change-me"
 
+    # Cloudinary Image Storage
+    CLOUDINARY_CLOUD_NAME: str = ""
+    CLOUDINARY_API_KEY: str = ""
+    CLOUDINARY_API_SECRET: str = ""
+    CLOUDINARY_FOLDER: str = "avenzo"
+
     # Logging
     LOG_LEVEL: str = "INFO"
 

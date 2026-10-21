@@ -16,6 +16,7 @@ class OrderCheckoutRequest(BaseModel):
     shipping_address: str = Field(..., min_length=5, max_length=1000)
     notes: Optional[str] = Field(None, max_length=1000)
     payment_method: str = Field(default="MOCK_PAYMENT", pattern="^(MOCK_PAYMENT|COD)$")
+    demo_purchase: bool = Field(default=False)
 
 
 class OrderItemRead(BaseModel):

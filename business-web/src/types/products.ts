@@ -6,6 +6,7 @@ export interface Category {
   id: string;
   name: string;
   description?: string;
+  image_url?: string;
   parent_id?: string;
   is_active: boolean;
   created_at?: string;
@@ -82,12 +83,14 @@ export interface ProductUpdate {
 export interface CategoryCreate {
   name: string;
   description?: string;
+  image_url?: string;
   parent_id?: string;
 }
 
 export interface CategoryUpdate {
   name?: string;
   description?: string;
+  image_url?: string;
   parent_id?: string;
   is_active?: boolean;
 }

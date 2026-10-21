@@ -238,6 +238,27 @@ describe('OrdersPage & Fulfillment Workspace Suite', () => {
       expect(allocateSpy).toHaveBeenCalledWith('ord-3333-4444');
     });
   });
+
+  it('8. Renders DEMO_COMPLETED payment status with informational cyan styling', async () => {
+    const demoOrder: Order = {
+      ...mockOrders[0],
+      id: 'ord-demo-9999',
+      order_number: 'ORD-DEMO-0001',
+      payment_status: 'DEMO_COMPLETED',
+      status: 'DELIVERED',
+    };
+    vi.spyOn(ordersApi, 'listOrders').mockResolvedValue({
+      success: true,
+      data: [demoOrder],
+    });
+
+    renderOrdersPageWithRole('ADMIN');
+    await waitFor(() => {
+      const demoElement = screen.getByText(/DEMO COMPLETED/i);
+      expect(demoElement).toBeInTheDocument();
+      expect(demoElement).toHaveStyle({ color: '#38bdf8' });
+    });
+  });
 });
 
 

@@ -320,10 +320,15 @@ export const OrdersPage: React.FC = () => {
                         style={{
                           fontSize: '0.75rem',
                           fontWeight: 600,
-                          color: order.payment_status === 'PAID' ? '#4ade80' : '#f87171',
+                          color:
+                            order.payment_status === 'PAID'
+                              ? '#4ade80'
+                              : order.payment_status === 'DEMO_COMPLETED'
+                              ? '#38bdf8'
+                              : '#f87171',
                         }}
                       >
-                        {order.payment_status} ({order.payment_method})
+                        {order.payment_status === 'DEMO_COMPLETED' ? 'DEMO COMPLETED' : order.payment_status} ({order.payment_method})
                       </span>
                     </td>
                     <td style={{ padding: '0.875rem 1rem' }}>

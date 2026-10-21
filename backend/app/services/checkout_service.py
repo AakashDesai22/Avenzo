@@ -7,7 +7,7 @@ stock reservation, idempotency deduplication, and order generation.
 import random
 import string
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,9 +19,12 @@ from fastapi import HTTPException, status
 from app.core.date_utils import get_business_date, get_utc_now
 from app.models.cart import Cart, CartItem
 from app.models.order import Order, OrderItem
+from app.models.order_allocation import OrderBatchAllocation
 from app.models.product import Product
 from app.models.inventory import Inventory, Batch, InventoryTransaction
+from app.models.pantry import ConsumerPantry, PantryItem, PantryItemLog
 from app.schemas.order import OrderCheckoutRequest, OrderRead, OrderItemRead
+from app.schemas.order_allocation import OrderBatchAllocationRead
 from app.schemas.marketplace import MarketplaceProductRead
 from app.services import marketplace_service
 
@@ -40,6 +43,7 @@ async def get_order_by_id(session: AsyncSession, order_id: UUID, user_id: UUID) 
         .options(
             joinedload(Order.items).joinedload(OrderItem.product).joinedload(Product.category),
             joinedload(Order.items).joinedload(OrderItem.product).joinedload(Product.brand),
+            joinedload(Order.items).joinedload(OrderItem.allocations).joinedload(OrderBatchAllocation.batch),
         )
         .where(Order.id == order_id, Order.user_id == user_id, Order.is_deleted == False)
     )
@@ -62,6 +66,7 @@ async def list_user_orders(session: AsyncSession, user_id: UUID) -> List[OrderRe
         .options(
             joinedload(Order.items).joinedload(OrderItem.product).joinedload(Product.category),
             joinedload(Order.items).joinedload(OrderItem.product).joinedload(Product.brand),
+            joinedload(Order.items).joinedload(OrderItem.allocations).joinedload(OrderBatchAllocation.batch),
         )
         .where(Order.user_id == user_id, Order.is_deleted == False)
         .order_by(Order.created_at.desc())
@@ -98,6 +103,24 @@ def build_order_read_model(order: Order) -> OrderRead:
                 is_available=True,
             )
 
+        allocs_read: List[OrderBatchAllocationRead] = []
+        for alloc in getattr(item, "allocations", []):
+            allocs_read.append(
+                OrderBatchAllocationRead(
+                    id=alloc.id,
+                    order_item_id=alloc.order_item_id,
+                    order_id=alloc.order_id,
+                    product_id=alloc.product_id,
+                    batch_id=alloc.batch_id,
+                    inventory_id=alloc.inventory_id,
+                    allocated_quantity=alloc.allocated_quantity,
+                    batch_number=alloc.batch.batch_number if alloc.batch else None,
+                    expiry_date=alloc.batch.expiry_date if alloc.batch else None,
+                    created_at=alloc.created_at,
+                    updated_at=alloc.updated_at,
+                )
+            )
+
         items_read.append(
             OrderItemRead(
                 id=item.id,
@@ -108,6 +131,7 @@ def build_order_read_model(order: Order) -> OrderRead:
                 total_price=item.total_price,
                 fulfillment_status=item.fulfillment_status,
                 product=prod_mkt,
+                allocations=allocs_read,
                 created_at=item.created_at,
                 updated_at=item.updated_at,
             )
@@ -140,13 +164,21 @@ async def process_checkout(
     """
     Executes atomic checkout transaction:
     1. Deduplicates via Idempotency-Key if provided.
-    2. Validates active cart and line items.
+    2. Validates active cart and line items (and publication status if demo purchase).
     3. Acquires SELECT FOR UPDATE pessimistic locks on Inventory in product_id ASC order.
-    4. Re-validates stock availability under row locks.
+    4. Re-validates stock availability under row locks with FEFO ordering.
     5. Calculates authoritative pricing, subtotal, and delivery fee.
     6. Creates Order & OrderItems with unit_price snapshots.
-    7. Reserves stock (quantity_reserved += quantity) & logs InventoryTransactions.
-    8. Marks Cart status = CONVERTED.
+    7. For demo purchases:
+       - Directly allocates stock via FEFO (OrderBatchAllocation)
+       - Deducts physical warehouse stock (quantity_on_hand -= qty) with SALE transactions
+       - Synchronously creates separate PantryItems for each allocation with batch expiry date
+       - Marks Order DELIVERED and payment PAID
+       - Converts cart atomically in one transaction
+    8. For standard orders:
+       - Reserves stock (quantity_reserved += quantity) & logs RESERVATION transactions
+       - Leaves status PENDING for warehouse fulfillment
+       - Converts cart
     """
     # 1. Idempotency Check
     if idempotency_key:
@@ -160,7 +192,7 @@ async def process_checkout(
     cart_stmt = (
         select(Cart)
         .options(
-            joinedload(Cart.items).joinedload(CartItem.product),
+            joinedload(Cart.items).joinedload(CartItem.product).joinedload(Product.category),
         )
         .where(Cart.user_id == user_id, Cart.status == "ACTIVE")
     )
@@ -181,12 +213,32 @@ async def process_checkout(
             detail="Cannot checkout: Cart contains no active products.",
         )
 
+    # Re-validate publication and category active status for demo purchases
+    if data.demo_purchase:
+        for item in cart.items:
+            prod = item.product
+            if not prod or not prod.is_active or prod.is_deleted:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Product '{prod.name if prod else 'Item'}' is inactive or deleted.",
+                )
+            if not getattr(prod, "is_published", False):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Product '{prod.name}' is a draft and cannot be purchased in marketplace.",
+                )
+            if prod.category and not prod.category.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Category for product '{prod.name}' is inactive.",
+                )
+
     product_ids = sorted(list(set(item.product_id for item in valid_items)))
 
     # 3. Lock Inventory Rows in Deterministic Order (product_id ASC, inventory.id ASC)
     lock_stmt = (
         select(Inventory)
-        .options(joinedload(Inventory.batch))
+        .options(joinedload(Inventory.batch), joinedload(Inventory.product))
         .where(Inventory.product_id.in_(product_ids))
         .order_by(Inventory.product_id.asc(), Inventory.id.asc())
         .with_for_update()
@@ -203,13 +255,25 @@ async def process_checkout(
         batch = inv.batch
         if not batch or batch.status != "active":
             continue
-        if inv.product and inv.product.has_expiry and batch.expiry_date and batch.expiry_date <= ref_date:
+        if inv.product and inv.product.has_expiry and batch.expiry_date and batch.expiry_date < ref_date:
             continue
 
         net_avail = max(0, (inv.quantity_on_hand or 0) - (inv.quantity_reserved or 0))
         if net_avail > 0:
             avail_map[inv.product_id].append(inv)
             total_avail_qty[inv.product_id] += net_avail
+
+    # Rank inventories per product using strict FEFO
+    for pid in product_ids:
+        avail_map[pid].sort(
+            key=lambda inv: (
+                inv.batch.expiry_date if (inv.batch and inv.batch.expiry_date) else date.max,
+                inv.batch.manufacturing_date if (inv.batch and inv.batch.manufacturing_date) else date.max,
+                inv.batch.created_at if (inv.batch and inv.batch.created_at) else datetime.max,
+                -max(0, (inv.quantity_on_hand or 0) - (inv.quantity_reserved or 0)),
+                str(inv.batch.id) if inv.batch else str(inv.id),
+            )
+        )
 
     # Validate stock sufficiency for every item
     for item in valid_items:
@@ -232,17 +296,23 @@ async def process_checkout(
         subtotal += line_total
         order_items_data.append((prod, item.quantity, unit_price, line_total))
 
-    # Standard deterministic delivery fee: $5.00, or FREE ($0.00) for orders >= $50.00
-    delivery_fee = Decimal("0.00") if subtotal >= Decimal("50.00") else Decimal("5.00")
-    total_amount = subtotal + delivery_fee
+    if data.demo_purchase:
+        delivery_fee = Decimal("0.00")
+        order_status = "DELIVERED"
+        payment_status = "DEMO_COMPLETED"
+    else:
+        # Standard deterministic delivery fee: $5.00, or FREE ($0.00) for orders >= $50.00
+        delivery_fee = Decimal("0.00") if subtotal >= Decimal("50.00") else Decimal("5.00")
+        order_status = "PENDING"
+        payment_status = "PAID" if data.payment_method == "MOCK_PAYMENT" else "UNPAID"
 
-    payment_status = "PAID" if data.payment_method == "MOCK_PAYMENT" else "UNPAID"
+    total_amount = subtotal + delivery_fee
     order_number = generate_order_number()
 
     order = Order(
         order_number=order_number,
         user_id=user_id,
-        status="PENDING",
+        status=order_status,
         payment_status=payment_status,
         payment_method=data.payment_method,
         subtotal=subtotal,
@@ -255,50 +325,151 @@ async def process_checkout(
     session.add(order)
     await session.flush()
 
-    # Create OrderItems with price snapshots
-    for prod, qty, price, line_tot in order_items_data:
-        order_item = OrderItem(
-            order_id=order.id,
-            product_id=prod.id,
-            quantity=qty,
-            unit_price=price,
-            total_price=line_tot,
-            fulfillment_status="UNALLOCATED",
+    if data.demo_purchase:
+        # Get or create default home pantry for the consumer
+        pantry_stmt = select(ConsumerPantry).where(
+            ConsumerPantry.user_id == user_id, ConsumerPantry.is_default == True
         )
-        session.add(order_item)
-
-    # 6. Inventory Reservation Stock Increment
-    for prod, qty, price, line_tot in order_items_data:
-        rem_to_reserve = qty
-        inv_list = avail_map.get(prod.id, [])
-
-        for inv in inv_list:
-            if rem_to_reserve <= 0:
-                break
-            net_avail = max(0, (inv.quantity_on_hand or 0) - (inv.quantity_reserved or 0))
-            if net_avail <= 0:
-                continue
-
-            reserve_amount = min(rem_to_reserve, net_avail)
-            qty_before_res = inv.quantity_reserved
-            inv.quantity_reserved = qty_before_res + reserve_amount
-            rem_to_reserve -= reserve_amount
-
-            # Audit transaction log
-            tx = InventoryTransaction(
-                inventory_id=inv.id,
-                transaction_type="RESERVATION",
-                quantity_change=reserve_amount,
-                quantity_before=qty_before_res,
-                quantity_after=inv.quantity_reserved,
-                reference_id=order.id,
-                reference_type="ORDER",
-                notes=f"Stock reservation of {reserve_amount} units for Order {order_number}",
+        pantry_res = await session.execute(pantry_stmt)
+        pantry = pantry_res.scalars().first()
+        if not pantry:
+            pantry = ConsumerPantry(
+                user_id=user_id,
+                name="My Home Pantry",
+                is_default=True,
             )
-            session.add(tx)
+            session.add(pantry)
+            await session.flush()
 
-    # 7. Convert Cart
-    cart.status = "CONVERTED"
-    await session.commit()
+        # Atomic FEFO allocation, stock deduction, and PantryItem creation
+        for prod, qty, price, line_tot in order_items_data:
+            order_item = OrderItem(
+                order_id=order.id,
+                product_id=prod.id,
+                quantity=qty,
+                unit_price=price,
+                total_price=line_tot,
+                fulfillment_status="DELIVERED",
+            )
+            session.add(order_item)
+            await session.flush()
 
-    return await get_order_by_id(session, order.id, user_id)
+            rem_to_allocate = qty
+            inv_list = avail_map.get(prod.id, [])
+
+            for inv in inv_list:
+                if rem_to_allocate <= 0:
+                    break
+                avail = max(0, (inv.quantity_on_hand or 0) - (inv.quantity_reserved or 0))
+                if avail <= 0:
+                    continue
+
+                take_qty = min(rem_to_allocate, avail)
+                alloc = OrderBatchAllocation(
+                    order_item_id=order_item.id,
+                    order_id=order.id,
+                    product_id=prod.id,
+                    batch_id=inv.batch_id,
+                    inventory_id=inv.id,
+                    allocated_quantity=take_qty,
+                )
+                session.add(alloc)
+
+                # Physical stock deduction
+                qty_before = inv.quantity_on_hand
+                inv.quantity_on_hand = max(0, (inv.quantity_on_hand or 0) - take_qty)
+                rem_to_allocate -= take_qty
+
+                # Audit transaction
+                tx = InventoryTransaction(
+                    inventory_id=inv.id,
+                    transaction_type="SALE",
+                    quantity_change=-take_qty,
+                    quantity_before=qty_before,
+                    quantity_after=inv.quantity_on_hand,
+                    reference_id=order.id,
+                    reference_type="ORDER",
+                    notes=f"Demo purchase stock deduction of {take_qty} units for Order {order_number}",
+                )
+                session.add(tx)
+
+                # Create separate Pantry item for each distinct batch allocation
+                batch_expiry = inv.batch.expiry_date if (prod.has_expiry and inv.batch) else None
+                u_measure = prod.unit_of_measure or "units"
+
+                pantry_item = PantryItem(
+                    pantry_id=pantry.id,
+                    product_id=prod.id,
+                    batch_id=inv.batch_id,
+                    order_item_id=order_item.id,
+                    quantity=take_qty,
+                    unit=u_measure,
+                    purchase_date=get_business_date(),
+                    expiry_date=batch_expiry,
+                    storage_location="pantry",
+                    status="active",
+                )
+                session.add(pantry_item)
+                await session.flush()
+
+                session.add(
+                    PantryItemLog(
+                        pantry_item_id=pantry_item.id,
+                        action="SYNCED_FROM_ORDER",
+                        quantity_change=take_qty,
+                    )
+                )
+
+        # Mark Cart CONVERTED
+        cart.status = "CONVERTED"
+        await session.commit()
+        return await get_order_by_id(session, order.id, user_id)
+    else:
+        # Standard warehouse multi-stage fulfillment flow
+        for prod, qty, price, line_tot in order_items_data:
+            order_item = OrderItem(
+                order_id=order.id,
+                product_id=prod.id,
+                quantity=qty,
+                unit_price=price,
+                total_price=line_tot,
+                fulfillment_status="UNALLOCATED",
+            )
+            session.add(order_item)
+
+        # 6. Inventory Reservation Stock Increment
+        for prod, qty, price, line_tot in order_items_data:
+            rem_to_reserve = qty
+            inv_list = avail_map.get(prod.id, [])
+
+            for inv in inv_list:
+                if rem_to_reserve <= 0:
+                    break
+                net_avail = max(0, (inv.quantity_on_hand or 0) - (inv.quantity_reserved or 0))
+                if net_avail <= 0:
+                    continue
+
+                reserve_amount = min(rem_to_reserve, net_avail)
+                qty_before_res = inv.quantity_reserved
+                inv.quantity_reserved = qty_before_res + reserve_amount
+                rem_to_reserve -= reserve_amount
+
+                # Audit transaction log
+                tx = InventoryTransaction(
+                    inventory_id=inv.id,
+                    transaction_type="RESERVATION",
+                    quantity_change=reserve_amount,
+                    quantity_before=qty_before_res,
+                    quantity_after=inv.quantity_reserved,
+                    reference_id=order.id,
+                    reference_type="ORDER",
+                    notes=f"Stock reservation of {reserve_amount} units for Order {order_number}",
+                )
+                session.add(tx)
+
+        # 7. Convert Cart
+        cart.status = "CONVERTED"
+        await session.commit()
+
+        return await get_order_by_id(session, order.id, user_id)
+
