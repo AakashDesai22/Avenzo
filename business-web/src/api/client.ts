@@ -244,3 +244,43 @@ export function apiPut<T>(path: string, body?: unknown): Promise<ApiResponse<T>>
 export function apiDelete<T>(path: string): Promise<ApiResponse<T>> {
   return request<T>(path, { method: 'DELETE' });
 }
+
+export async function apiUpload<T>(path: string, formData: FormData): Promise<ApiResponse<T>> {
+  const token = getAccessToken();
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: {
+          code: errorBody.error?.code || `HTTP_${response.status}`,
+          message: errorBody.detail || errorBody.error?.message || errorBody.message || response.statusText || 'Upload failed',
+        },
+      };
+    }
+
+    return response.json();
+  } catch (err: any) {
+    return {
+      success: false,
+      error: {
+        code: 'NETWORK_ERROR',
+        message: err.message || 'Network error occurred during file upload.',
+      },
+    };
+  }
+}
+

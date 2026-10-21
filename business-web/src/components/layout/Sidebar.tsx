@@ -12,6 +12,7 @@ import {
   Tags,
   Layers,
   Boxes,
+  Truck,
   Award,
   Building2,
   TrendingUp,
@@ -57,6 +58,12 @@ export const Sidebar: React.FC = () => {
       path: '/categories',
       icon: Tags,
       roles: ['ADMIN', 'BUSINESS_MANAGER'],
+    },
+    {
+      label: 'Suppliers',
+      path: '/suppliers',
+      icon: Truck,
+      roles: ['ADMIN', 'BUSINESS_MANAGER', 'STAFF'],
     },
     {
       label: 'Inventory',

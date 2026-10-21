@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getCategoriesApi,
@@ -13,8 +13,9 @@ import { Input } from '../components/ui/Input';
 import { Table, Column } from '../components/ui/Table';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
+import { ImageUpload } from '../components/ui/ImageUpload';
 import { useAuth } from '../context/AuthContext';
-import { Plus } from 'lucide-react';
+import { Plus, Tags } from 'lucide-react';
 
 export const CategoriesPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -25,6 +26,7 @@ export const CategoriesPage: React.FC = () => {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
   // Fetch all categories (including inactive) for admin view
@@ -34,7 +36,7 @@ export const CategoriesPage: React.FC = () => {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; description?: string }) => createCategoryApi(data),
+    mutationFn: (data: { name: string; description?: string; image_url?: string }) => createCategoryApi(data),
     onSuccess: (res) => {
       if (res.success) {
         queryClient.invalidateQueries({ queryKey: ['categories'] });
@@ -46,7 +48,7 @@ export const CategoriesPage: React.FC = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name?: string; description?: string; is_active?: boolean } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; description?: string; image_url?: string; is_active?: boolean } }) =>
       updateCategoryApi(id, data),
     onSuccess: (res) => {
       if (res.success) {
@@ -68,11 +70,15 @@ export const CategoriesPage: React.FC = () => {
     setEditingCategory(null);
     setName('');
     setDescription('');
+    setImageUrl('');
     setFormError(null);
   };
 
   const handleOpenCreate = () => {
     setEditingCategory(null);
+    setName('');
+    setDescription('');
+    setImageUrl('');
     setIsModalOpen(true);
   };
 
@@ -80,12 +86,13 @@ export const CategoriesPage: React.FC = () => {
     setEditingCategory(cat);
     setName(cat.name);
     setDescription(cat.description || '');
+    setImageUrl(cat.image_url || '');
     setIsModalOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name) {
+    if (!name.trim()) {
       setFormError('Category name is required.');
       return;
     }
@@ -93,10 +100,14 @@ export const CategoriesPage: React.FC = () => {
     if (editingCategory) {
       updateMutation.mutate({
         id: editingCategory.id,
-        data: { name, description: description || undefined },
+        data: { name: name.trim(), description: description.trim() || undefined, image_url: imageUrl || undefined },
       });
     } else {
-      createMutation.mutate({ name, description: description || undefined });
+      createMutation.mutate({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        image_url: imageUrl || undefined,
+      });
     }
   };
 
@@ -104,7 +115,38 @@ export const CategoriesPage: React.FC = () => {
     {
       key: 'name',
       header: 'Category Name',
-      render: (c) => <span style={{ fontWeight: 600 }}>{c.name}</span>,
+      render: (c) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 'var(--radius-sm)',
+              overflow: 'hidden',
+              backgroundColor: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            {c.image_url ? (
+              <img
+                src={c.image_url}
+                alt={c.name}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <Tags size={18} color="var(--color-text-secondary)" />
+            )}
+          </div>
+          <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{c.name}</span>
+        </div>
+      ),
     },
     { key: 'description', header: 'Description', render: (c) => c.description || 'N/A' },
     {
@@ -186,6 +228,14 @@ export const CategoriesPage: React.FC = () => {
             label="Description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+          />
+
+          <ImageUpload
+            label="Category Icon / Image"
+            value={imageUrl}
+            onChange={setImageUrl}
+            aspectRatio="square"
+            helperText="Square icon (JPEG, PNG, WebP max 5 MB)"
           />
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>

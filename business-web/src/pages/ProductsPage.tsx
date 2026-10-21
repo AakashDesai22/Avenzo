@@ -15,9 +15,10 @@ import { Input } from '../components/ui/Input';
 import { Table, Column } from '../components/ui/Table';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
+import { ImageUpload } from '../components/ui/ImageUpload';
 import { formatCurrency } from '../utils/formatters';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Globe, EyeOff } from 'lucide-react';
+import { Plus, Globe, EyeOff, Package } from 'lucide-react';
 
 export const ProductsPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -182,25 +183,73 @@ export const ProductsPage: React.FC = () => {
   const columns: Column<Product>[] = [
     {
       key: 'name',
-      header: 'Product Name',
+      header: 'Product',
+      render: (p) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div
+            style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: 'var(--color-surface-hover, rgba(255,255,255,0.05))',
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            {p.image_url ? (
+              <img
+                src={p.image_url}
+                alt={p.name}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <Package size={20} color="var(--color-text-secondary)" />
+            )}
+          </div>
+          <div>
+            <span style={{ fontWeight: 600, display: 'block' }}>{p.name}</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+              SKU: {p.sku}
+            </span>
+          </div>
+        </div>
+      ),
+    },
+    { key: 'category', header: 'Category', render: (p) => p.category?.name || 'N/A' },
+    {
+      key: 'pricing',
+      header: 'Price',
       render: (p) => (
         <div>
-          <span style={{ fontWeight: 600, display: 'block' }}>{p.name}</span>
-          {p.description && (
+          <span style={{ fontWeight: 600, display: 'block' }}>{formatCurrency(p.unit_price)}</span>
+          {p.cost_price != null && (
             <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-              {p.description.length > 60 ? p.description.slice(0, 60) + '…' : p.description}
+              Cost: {formatCurrency(p.cost_price)}
             </span>
           )}
         </div>
       ),
     },
-    { key: 'sku', header: 'SKU' },
-    { key: 'category', header: 'Category', render: (p) => p.category?.name || 'N/A' },
-    { key: 'unit_price', header: 'Unit Price', render: (p) => formatCurrency(p.unit_price) },
     {
       key: 'shelf_life',
-      header: 'Shelf Life',
-      render: (p) => (p.shelf_life_days ? `${p.shelf_life_days} days` : 'N/A'),
+      header: 'Shelf Life / Expiry',
+      render: (p) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+          <span>{p.shelf_life_days ? `${p.shelf_life_days} days` : 'N/A'}</span>
+          {p.has_expiry ? (
+            <Badge variant="info">Expiry Tracked</Badge>
+          ) : (
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>No Expiry</span>
+          )}
+        </div>
+      ),
     },
     {
       key: 'is_published',
@@ -349,11 +398,10 @@ export const ProductsPage: React.FC = () => {
             <Input label="Barcode" value={barcode} onChange={(e) => setBarcode(e.target.value)} />
           </div>
 
-          <Input
-            label="Image URL"
-            placeholder="https://example.com/image.jpg"
+          <ImageUpload
+            label="Product Image"
             value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
+            onChange={setImageUrl}
           />
 
           <div>

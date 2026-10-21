@@ -10,6 +10,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { CategoriesPage } from './pages/CategoriesPage';
+import { SuppliersPage } from './pages/SuppliersPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { BatchesPage } from './pages/BatchesPage';
 import { WarehousesPage } from './pages/WarehousesPage';
@@ -67,6 +68,7 @@ export function App() {
                 }
               />
               
+              <Route path="suppliers" element={<SuppliersPage />} />
               <Route path="inventory" element={<InventoryPage />} />
               <Route path="batches" element={<BatchesPage />} />
               <Route path="warehouses" element={<WarehousesPage />} />
