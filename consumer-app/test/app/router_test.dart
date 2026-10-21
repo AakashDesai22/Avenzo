@@ -85,7 +85,8 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Hello, Test 👋'), findsOneWidget);
+    expect(find.text('AVENZO'), findsOneWidget);
+    expect(find.textContaining('Deliver to Home • Test'), findsOneWidget);
     expect(find.text('Quick Actions'), findsOneWidget);
   });
 }
