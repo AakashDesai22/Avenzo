@@ -12,7 +12,8 @@ import { getWarehousesApi, createBatchApi, adjustInventoryApi } from '../../api/
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { CheckCircle2, ArrowRight, ArrowLeft, PackageCheck } from 'lucide-react';
+import { CreateWarehouseModal } from '../warehouses/CreateWarehouseModal';
+import { CheckCircle2, ArrowRight, ArrowLeft, PackageCheck, Plus } from 'lucide-react';
 
 interface ProductReceivingModalProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ export const ProductReceivingModal: React.FC<ProductReceivingModalProps> = ({ is
   const [locationId, setLocationId] = useState('');
   const [notes, setNotes] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [isCreateWhModalOpen, setIsCreateWhModalOpen] = useState(false);
 
   // Queries
   const { data: productsRes } = useQuery({
@@ -175,8 +177,9 @@ export const ProductReceivingModal: React.FC<ProductReceivingModalProps> = ({ is
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
+    <>
+      <Modal
+        isOpen={isOpen}
       onClose={handleClose}
       title="Product Batch Receiving Workflow"
       subtitle={`Step ${step} of 4 — Record incoming inventory batch into warehouse facility`}
@@ -303,32 +306,79 @@ export const ProductReceivingModal: React.FC<ProductReceivingModalProps> = ({ is
             />
 
             <div>
-              <label style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '0.375rem' }}>
-                Target Receiving Warehouse *
-              </label>
-              <select
-                value={warehouseId}
-                onChange={(e) => {
-                  setWarehouseId(e.target.value);
-                  setLocationId('');
-                }}
-                required
-                style={{
-                  width: '100%',
-                  padding: '0.625rem',
-                  backgroundColor: 'var(--color-surface)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: '0.375rem',
-                  color: 'var(--color-text-primary)',
-                }}
-              >
-                <option value="">-- Select Warehouse --</option>
-                {warehousesRes?.data?.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name} ({w.city || 'Primary'})
-                  </option>
-                ))}
-              </select>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.375rem' }}>
+                <label style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
+                  Target Receiving Warehouse *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateWhModalOpen(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#3b82f6',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                  }}
+                >
+                  <Plus size={12} /> New Facility
+                </button>
+              </div>
+
+              {(!warehousesRes?.data || warehousesRes.data.length === 0) ? (
+                <div
+                  style={{
+                    padding: '0.75rem',
+                    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    borderRadius: '0.375rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.75rem',
+                  }}
+                >
+                  <span style={{ fontSize: '0.8125rem', color: '#f87171' }}>
+                    No warehouses available.
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsCreateWhModalOpen(true)}
+                  >
+                    <Plus size={12} style={{ marginRight: '0.25rem' }} /> Create Warehouse
+                  </Button>
+                </div>
+              ) : (
+                <select
+                  value={warehouseId}
+                  onChange={(e) => {
+                    setWarehouseId(e.target.value);
+                    setLocationId('');
+                  }}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '0.625rem',
+                    backgroundColor: 'var(--color-surface)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '0.375rem',
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  <option value="">-- Select Warehouse --</option>
+                  {warehousesRes?.data?.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name} ({w.city || 'Primary'})
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div>
@@ -404,5 +454,12 @@ export const ProductReceivingModal: React.FC<ProductReceivingModalProps> = ({ is
         </div>
       </form>
     </Modal>
-  );
+
+    <CreateWarehouseModal
+      isOpen={isCreateWhModalOpen}
+      onClose={() => setIsCreateWhModalOpen(false)}
+      onSuccess={(newWh) => setWarehouseId(newWh.id)}
+    />
+  </>
+);
 };

@@ -159,7 +159,7 @@ export const ProductsPage: React.FC = () => {
           cost_price: costPrice ? parseFloat(costPrice) : undefined,
           shelf_life_days: shelfLifeDays ? parseInt(shelfLifeDays, 10) : undefined,
           has_expiry: hasExpiry,
-          image_url: imageUrl || undefined,
+          image_url: imageUrl ? imageUrl : null,
           is_published: isPublished,
         },
       });

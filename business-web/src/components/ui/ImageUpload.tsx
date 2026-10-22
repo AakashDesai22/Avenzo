@@ -5,9 +5,8 @@
  */
 
 import React, { useRef, useState } from 'react';
-import { UploadCloud, X, RefreshCw, Image as ImageIcon } from 'lucide-react';
+import { UploadCloud, X, RefreshCw } from 'lucide-react';
 import { uploadImageApi } from '../../api/products.api';
-import { Button } from './Button';
 
 interface ImageUploadProps {
   label?: string;

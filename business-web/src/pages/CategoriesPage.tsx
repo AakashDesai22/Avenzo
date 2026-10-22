@@ -6,7 +6,7 @@ import {
   updateCategoryApi,
   deleteCategoryApi,
 } from '../api/products.api';
-import { Category } from '../types/products';
+import { Category, CategoryCreate, CategoryUpdate } from '../types/products';
 import { Header } from '../components/layout/Header';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -36,7 +36,7 @@ export const CategoriesPage: React.FC = () => {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; description?: string; image_url?: string }) => createCategoryApi(data),
+    mutationFn: (data: CategoryCreate) => createCategoryApi(data),
     onSuccess: (res) => {
       if (res.success) {
         queryClient.invalidateQueries({ queryKey: ['categories'] });
@@ -48,7 +48,7 @@ export const CategoriesPage: React.FC = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name?: string; description?: string; image_url?: string; is_active?: boolean } }) =>
+    mutationFn: ({ id, data }: { id: string; data: CategoryUpdate }) =>
       updateCategoryApi(id, data),
     onSuccess: (res) => {
       if (res.success) {
@@ -100,7 +100,7 @@ export const CategoriesPage: React.FC = () => {
     if (editingCategory) {
       updateMutation.mutate({
         id: editingCategory.id,
-        data: { name: name.trim(), description: description.trim() || undefined, image_url: imageUrl || undefined },
+        data: { name: name.trim(), description: description.trim() || undefined, image_url: imageUrl ? imageUrl : null },
       });
     } else {
       createMutation.mutate({

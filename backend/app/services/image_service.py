@@ -260,10 +260,40 @@ async def upload_image_to_cloudinary(file: UploadFile, folder: Optional[str] = N
         )
 
     if resp.status_code != 200:
-        logger.error(f"Cloudinary upload rejected with HTTP {resp.status_code}")
+        raw_error = ""
+        error_message = ""
+        try:
+            err_json = resp.json()
+            if isinstance(err_json, dict) and "error" in err_json:
+                error_message = str(err_json["error"].get("message", ""))
+        except Exception:
+            raw_error = resp.text[:300]
+
+        logger.error(
+            f"Cloudinary upload rejected with HTTP {resp.status_code}: {error_message or raw_error}"
+        )
+
+        sanitized_detail = "Cloud storage provider rejected image upload."
+        if error_message:
+            lowered = error_message.lower()
+            if "string to sign" in lowered:
+                sanitized_detail = "Cloud storage provider rejected image upload: Invalid storage signature authentication."
+            elif "upload_preset" in lowered:
+                sanitized_detail = "Cloud storage provider rejected image upload: Upload preset configuration mismatch."
+            elif "cloud name" in lowered:
+                sanitized_detail = "Cloud storage provider rejected image upload: Invalid cloud storage account name."
+            elif "api key" in lowered:
+                sanitized_detail = "Cloud storage provider rejected image upload: Invalid storage API key."
+            elif "disabled" in lowered:
+                sanitized_detail = "Cloud storage provider rejected image upload: Cloud storage account is disabled."
+            else:
+                clean_msg = re.sub(r"[^\w\s\.\-]", "", error_message).strip()
+                if clean_msg:
+                    sanitized_detail = f"Cloud storage provider rejected image upload: {clean_msg}"
+
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Cloud storage provider rejected image upload.",
+            detail=sanitized_detail,
         )
 
     res_json = resp.json()

@@ -207,3 +207,56 @@ async def test_upload_cloudinary_timeout_returns_504(client: AsyncClient, admin_
         assert "timed out" in res.json()["detail"].lower()
         # Verify secret not leaked in error payload
         assert "super_secret_key_1234567890" not in res.text
+
+
+def test_settings_cloudinary_url_and_trimming():
+    """Settings correctly parses CLOUDINARY_URL and strips whitespace/quotes from credentials."""
+    from app.core.config import Settings
+    s = Settings(
+        CLOUDINARY_URL="cloudinary://apikey123:apisecret456@mycloud789",
+        APP_ENV="development",
+    )
+    assert s.CLOUDINARY_API_KEY == "apikey123"
+    assert s.CLOUDINARY_API_SECRET == "apisecret456"
+    assert s.CLOUDINARY_CLOUD_NAME == "mycloud789"
+
+    # Trimming whitespace and quotes
+    s2 = Settings(
+        CLOUDINARY_CLOUD_NAME=" 'trimmed_cloud' ",
+        CLOUDINARY_API_KEY=' "trimmed_key" ',
+        CLOUDINARY_API_SECRET="  trimmed_secret  ",
+        APP_ENV="development",
+    )
+    assert s2.CLOUDINARY_CLOUD_NAME == "trimmed_cloud"
+    assert s2.CLOUDINARY_API_KEY == "trimmed_key"
+    assert s2.CLOUDINARY_API_SECRET == "trimmed_secret"
+
+
+@pytest.mark.asyncio
+async def test_upload_cloudinary_rejected_sanitized_502(client: AsyncClient, admin_headers: dict, monkeypatch):
+    """When upstream Cloudinary rejects with an error, 502 is returned with sanitized details."""
+    monkeypatch.setattr(settings, "CLOUDINARY_CLOUD_NAME", "test-cloud")
+    monkeypatch.setattr(settings, "CLOUDINARY_API_KEY", "111222333")
+    monkeypatch.setattr(settings, "CLOUDINARY_API_SECRET", "super_secret_key_1234567890")
+
+    mock_error_resp = httpx.Response(
+        status_code=400,
+        json={"error": {"message": "Invalid Signature 999. String to sign - 'folder=avenzo&super_secret_key_1234567890'"}},
+        request=httpx.Request("POST", "https://api.cloudinary.com/v1_1/test-cloud/image/upload"),
+    )
+
+    mock_async_client = AsyncMock()
+    mock_async_client.post.return_value = mock_error_resp
+    mock_async_client.__aenter__.return_value = mock_async_client
+    mock_async_client.__aexit__.return_value = None
+
+    with patch("app.services.image_service.httpx.AsyncClient", return_value=mock_async_client):
+        files = {"file": ("sample.png", io.BytesIO(SAMPLE_PNG), "image/png")}
+        res = await client.post("/api/v1/uploads/image", files=files, headers=admin_headers)
+
+        assert res.status_code == 502
+        assert "Cloud storage provider rejected image upload" in res.json()["detail"]
+        # Ensure secret and signature string to sign are NOT leaked to client
+        assert "super_secret_key_1234567890" not in res.text
+        assert "String to sign" not in res.text
+

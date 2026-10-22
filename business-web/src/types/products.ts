@@ -75,7 +75,7 @@ export interface ProductUpdate {
   reorder_quantity?: number;
   shelf_life_days?: number;
   has_expiry?: boolean;
-  image_url?: string;
+  image_url?: string | null;
   is_active?: boolean;
   is_published?: boolean;
 }
@@ -83,14 +83,14 @@ export interface ProductUpdate {
 export interface CategoryCreate {
   name: string;
   description?: string;
-  image_url?: string;
+  image_url?: string | null;
   parent_id?: string;
 }
 
 export interface CategoryUpdate {
   name?: string;
   description?: string;
-  image_url?: string;
+  image_url?: string | null;
   parent_id?: string;
   is_active?: boolean;
 }

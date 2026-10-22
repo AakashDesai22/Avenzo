@@ -2,9 +2,11 @@
  * AVENZO Business Web — Inventory, Batches, Warehouses API Wrapper
  */
 
-import { apiGet, apiPost, ApiResponse } from './client';
+import { apiGet, apiPost, apiPut, apiDelete, ApiResponse } from './client';
 import {
   Warehouse,
+  WarehouseCreate,
+  WarehouseUpdate,
   WarehouseLocation,
   Batch,
   BatchCreate,
@@ -13,8 +15,24 @@ import {
   InventoryTransaction,
 } from '../types/inventory';
 
-export async function getWarehousesApi(): Promise<ApiResponse<Warehouse[]>> {
-  return apiGet<Warehouse[]>('/warehouses');
+export async function getWarehousesApi(params?: { active_only?: boolean }): Promise<ApiResponse<Warehouse[]>> {
+  return apiGet<Warehouse[]>('/warehouses', params);
+}
+
+export async function getWarehouseByIdApi(warehouseId: string): Promise<ApiResponse<Warehouse>> {
+  return apiGet<Warehouse>(`/warehouses/${warehouseId}`);
+}
+
+export async function createWarehouseApi(data: WarehouseCreate): Promise<ApiResponse<Warehouse>> {
+  return apiPost<Warehouse>('/warehouses', data);
+}
+
+export async function updateWarehouseApi(warehouseId: string, data: WarehouseUpdate): Promise<ApiResponse<Warehouse>> {
+  return apiPut<Warehouse>(`/warehouses/${warehouseId}`, data);
+}
+
+export async function deactivateWarehouseApi(warehouseId: string): Promise<ApiResponse<Warehouse>> {
+  return apiDelete<Warehouse>(`/warehouses/${warehouseId}`);
 }
 
 export async function createWarehouseLocationApi(

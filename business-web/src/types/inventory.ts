@@ -20,6 +20,22 @@ export interface Warehouse {
   city?: string;
   is_active: boolean;
   locations?: WarehouseLocation[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface WarehouseCreate {
+  name: string;
+  address?: string;
+  city?: string;
+  is_active?: boolean;
+}
+
+export interface WarehouseUpdate {
+  name?: string;
+  address?: string;
+  city?: string;
+  is_active?: boolean;
 }
 
 export interface Batch {

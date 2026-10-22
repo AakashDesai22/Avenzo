@@ -104,3 +104,21 @@ async def add_location(
         data=WarehouseLocationRead.model_validate(location),
         message="Warehouse location created successfully.",
     )
+
+
+@router.delete("/{warehouse_id}", response_model=ApiResponse[WarehouseRead])
+async def deactivate_warehouse(
+    warehouse_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(["ADMIN", "BUSINESS_MANAGER"])),
+):
+    """
+    Deactivate a warehouse facility (Admin/Manager only). Prohibited if active inventory exists.
+    """
+    warehouse = await warehouse_service.deactivate_warehouse(session, warehouse_id)
+    return ApiResponse(
+        success=True,
+        data=WarehouseRead.model_validate(warehouse),
+        message="Warehouse deactivated successfully.",
+    )
+

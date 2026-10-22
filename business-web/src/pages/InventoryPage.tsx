@@ -23,7 +23,8 @@ import { Badge } from '../components/ui/Badge';
 import { formatDate } from '../utils/formatters';
 import { useAuth } from '../context/AuthContext';
 import { ProductReceivingModal } from '../components/inventory/ProductReceivingModal';
-import { SlidersHorizontal, History, PackageCheck, Filter } from 'lucide-react';
+import { CreateWarehouseModal } from '../components/warehouses/CreateWarehouseModal';
+import { SlidersHorizontal, History, PackageCheck, Filter, Plus } from 'lucide-react';
 
 export const InventoryPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -36,6 +37,7 @@ export const InventoryPage: React.FC = () => {
 
   const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
   const [isReceivingModalOpen, setIsReceivingModalOpen] = useState(false);
+  const [isCreateWhModalOpen, setIsCreateWhModalOpen] = useState(false);
 
   // Form state for Stock Adjustment
   const [adjProductId, setAdjProductId] = useState('');
@@ -369,22 +371,72 @@ export const InventoryPage: React.FC = () => {
           </div>
 
           <div>
-            <label style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '0.375rem' }}>Warehouse Facility *</label>
-            <select
-              value={adjWarehouseId}
-              onChange={(e) => {
-                setAdjWarehouseId(e.target.value);
-                setAdjLocationId('');
-              }}
-              required
-              style={{ width: '100%', padding: '0.625rem', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)' }}
-            >
-              {warehousesRes?.data?.map((wh) => (
-                <option key={wh.id} value={wh.id}>
-                  {wh.name}
-                </option>
-              ))}
-            </select>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.375rem' }}>
+              <label style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
+                Warehouse Facility *
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsCreateWhModalOpen(true)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#3b82f6',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                }}
+              >
+                <Plus size={12} /> New Facility
+              </button>
+            </div>
+
+            {(!warehousesRes?.data || warehousesRes.data.length === 0) ? (
+              <div
+                style={{
+                  padding: '0.75rem',
+                  backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  borderRadius: 'var(--radius-md)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.75rem',
+                }}
+              >
+                <span style={{ fontSize: '0.8125rem', color: '#f87171' }}>
+                  No warehouses available.
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsCreateWhModalOpen(true)}
+                >
+                  <Plus size={12} style={{ marginRight: '0.25rem' }} /> Create Warehouse
+                </Button>
+              </div>
+            ) : (
+              <select
+                value={adjWarehouseId}
+                onChange={(e) => {
+                  setAdjWarehouseId(e.target.value);
+                  setAdjLocationId('');
+                }}
+                required
+                style={{ width: '100%', padding: '0.625rem', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-primary)' }}
+              >
+                <option value="">-- Select Warehouse Facility --</option>
+                {warehousesRes.data.map((wh) => (
+                  <option key={wh.id} value={wh.id}>
+                    {wh.name} ({wh.city || 'Primary'})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div>
@@ -437,6 +489,13 @@ export const InventoryPage: React.FC = () => {
 
       {/* Guided Receiving Workflow Modal */}
       <ProductReceivingModal isOpen={isReceivingModalOpen} onClose={() => setIsReceivingModalOpen(false)} />
+
+      {/* Inline Create Warehouse Modal */}
+      <CreateWarehouseModal
+        isOpen={isCreateWhModalOpen}
+        onClose={() => setIsCreateWhModalOpen(false)}
+        onSuccess={(newWh) => setAdjWarehouseId(newWh.id)}
+      />
     </div>
   );
 };

@@ -5,6 +5,7 @@ Enforces production security rules when APP_ENV == "production".
 """
 
 
+import urllib.parse
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings
 
@@ -85,6 +86,7 @@ class Settings(BaseSettings):
     EXPIRY_MONITOR_SECRET: str = "dev-only-change-me"
 
     # Cloudinary Image Storage
+    CLOUDINARY_URL: str = ""
     CLOUDINARY_CLOUD_NAME: str = ""
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""
@@ -95,11 +97,36 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_settings(self) -> "Settings":
-        """Enforces strict security constraints and normalizes DATABASE_URL."""
+        """Enforces strict security constraints and normalizes DATABASE_URL and storage settings."""
         if self.DATABASE_URL.startswith("postgres://"):
             self.DATABASE_URL = self.DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
         elif self.DATABASE_URL.startswith("postgresql://") and not self.DATABASE_URL.startswith("postgresql+asyncpg://"):
             self.DATABASE_URL = self.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+        # Parse CLOUDINARY_URL if provided (e.g. cloudinary://<api_key>:<api_secret>@<cloud_name>)
+        if self.CLOUDINARY_URL:
+            raw_url = self.CLOUDINARY_URL.strip().strip("'\"")
+            if raw_url.startswith("cloudinary://"):
+                try:
+                    parsed = urllib.parse.urlparse(raw_url)
+                    if parsed.username and not self.CLOUDINARY_API_KEY:
+                        self.CLOUDINARY_API_KEY = parsed.username
+                    if parsed.password and not self.CLOUDINARY_API_SECRET:
+                        self.CLOUDINARY_API_SECRET = parsed.password
+                    if parsed.hostname and not self.CLOUDINARY_CLOUD_NAME:
+                        self.CLOUDINARY_CLOUD_NAME = parsed.hostname
+                except Exception:
+                    pass
+
+        # Normalize and strip whitespace/quotes from Cloudinary configuration
+        if self.CLOUDINARY_CLOUD_NAME:
+            self.CLOUDINARY_CLOUD_NAME = self.CLOUDINARY_CLOUD_NAME.strip().strip("'\"")
+        if self.CLOUDINARY_API_KEY:
+            self.CLOUDINARY_API_KEY = self.CLOUDINARY_API_KEY.strip().strip("'\"")
+        if self.CLOUDINARY_API_SECRET:
+            self.CLOUDINARY_API_SECRET = self.CLOUDINARY_API_SECRET.strip().strip("'\"")
+        if self.CLOUDINARY_FOLDER:
+            self.CLOUDINARY_FOLDER = self.CLOUDINARY_FOLDER.strip().strip("'\"")
 
         if self.APP_ENV.lower() == "production":
             if self.APP_DEBUG:

@@ -81,8 +81,11 @@ async def adjust_inventory(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Batch '{request.batch_id}' not found.")
 
     wh = await session.execute(select(Warehouse).where(Warehouse.id == request.warehouse_id))
-    if not wh.scalars().first():
+    wh_obj = wh.scalars().first()
+    if not wh_obj:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Warehouse '{request.warehouse_id}' not found.")
+    if not wh_obj.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Warehouse '{wh_obj.name}' is inactive.")
 
     if request.location_id:
         loc = await session.execute(select(WarehouseLocation).where(WarehouseLocation.id == request.location_id))

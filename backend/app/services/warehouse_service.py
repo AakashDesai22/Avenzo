@@ -11,6 +11,7 @@ from sqlalchemy.orm import joinedload
 from fastapi import HTTPException, status
 
 from app.models.warehouse import Warehouse, WarehouseLocation
+from app.models.inventory import Inventory
 from app.schemas.warehouse import WarehouseCreate, WarehouseUpdate, WarehouseLocationCreate
 
 
@@ -91,3 +92,26 @@ async def add_warehouse_location(
     await session.commit()
     await session.refresh(location)
     return location
+
+
+async def deactivate_warehouse(session: AsyncSession, warehouse_id: UUID) -> Warehouse:
+    """Deactivate warehouse if no active inventory exists, enforcing business integrity."""
+    warehouse = await get_warehouse_by_id(session, warehouse_id)
+
+    # Check for active stock balances
+    active_inv = await session.execute(
+        select(Inventory).where(
+            Inventory.warehouse_id == warehouse_id,
+            Inventory.quantity_on_hand > 0,
+        )
+    )
+    if active_inv.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot deactivate warehouse '{warehouse.name}' with active inventory. Please transfer or adjust stock first.",
+        )
+
+    warehouse.is_active = False
+    await session.commit()
+    return await get_warehouse_by_id(session, warehouse_id)
+
