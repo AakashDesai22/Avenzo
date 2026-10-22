@@ -330,3 +330,56 @@ async def test_product_update_duplicate_sku_and_barcode_rejected(client: AsyncCl
     assert "barcode" in up_bc.json()["detail"].lower()
 
 
+@pytest.mark.asyncio
+async def test_product_create_with_category_name_resolution(client: AsyncClient, admin_headers: dict):
+    """Test product creation resolving category by name string instead of UUID."""
+    cat = await client.post("/api/v1/categories", json={"name": "Dairy Fresh Cat"}, headers=admin_headers)
+    assert cat.status_code == 201
+
+    prod_res = await client.post(
+        "/api/v1/products",
+        json={
+            "name": "Organic Whole Milk",
+            "sku": "MILK-NAME-RES-001",
+            "category_id": "Dairy Fresh Cat",
+            "unit_price": "28.50",
+            "cost_price": "22.00",
+        },
+        headers=admin_headers,
+    )
+    assert prod_res.status_code == 201
+    data = prod_res.json()["data"]
+    assert data["name"] == "Organic Whole Milk"
+    assert data["category"]["name"] == "Dairy Fresh Cat"
+
+
+@pytest.mark.asyncio
+async def test_product_create_with_empty_string_optional_fields(client: AsyncClient, admin_headers: dict):
+    """Test product creation gracefully handles empty strings for optional numeric/string fields without 422."""
+    cat = await client.post("/api/v1/categories", json={"name": "Empty Field Cat"}, headers=admin_headers)
+    cat_id = cat.json()["data"]["id"]
+
+    prod_res = await client.post(
+        "/api/v1/products",
+        json={
+            "name": "Clean Test Product",
+            "sku": "EMPTY-STR-001",
+            "barcode": "",
+            "category_id": cat_id,
+            "unit_price": "19.99",
+            "cost_price": "",
+            "shelf_life_days": "",
+            "description": "",
+            "image_url": "",
+        },
+        headers=admin_headers,
+    )
+    assert prod_res.status_code == 201
+    data = prod_res.json()["data"]
+    assert data["sku"] == "EMPTY-STR-001"
+    assert data["cost_price"] is None
+    assert data["shelf_life_days"] is None
+    assert data["barcode"] is None
+
+
+

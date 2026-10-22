@@ -18,12 +18,26 @@ from app.schemas.product import ProductCreate, ProductUpdate
 
 async def create_product(session: AsyncSession, data: ProductCreate, created_by_id: UUID | None = None) -> Product:
     """Create a new product master entity."""
-    # Verify category exists
-    cat_res = await session.execute(select(Category).where(Category.id == data.category_id))
-    if not cat_res.scalars().first():
+    # Verify category exists (by UUID or name)
+    cat = None
+    if isinstance(data.category_id, UUID):
+        cat_res = await session.execute(select(Category).where(Category.id == data.category_id))
+        cat = cat_res.scalars().first()
+    else:
+        try:
+            parsed_uuid = UUID(str(data.category_id).strip())
+            cat_res = await session.execute(select(Category).where(Category.id == parsed_uuid))
+            cat = cat_res.scalars().first()
+        except ValueError:
+            cat_res = await session.execute(
+                select(Category).where(Category.name.ilike(str(data.category_id).strip()))
+            )
+            cat = cat_res.scalars().first()
+
+    if not cat:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Category with id '{data.category_id}' not found.",
+            detail=f"Category '{data.category_id}' not found.",
         )
 
     # Check for duplicate SKU across all records (DB unique constraint)
@@ -48,7 +62,7 @@ async def create_product(session: AsyncSession, data: ProductCreate, created_by_
         description=data.description,
         sku=data.sku,
         barcode=data.barcode,
-        category_id=data.category_id,
+        category_id=cat.id,
         brand_id=data.brand_id,
         unit_of_measure=data.unit_of_measure,
         unit_price=data.unit_price,
@@ -163,12 +177,28 @@ async def update_product(session: AsyncSession, product_id: UUID, data: ProductU
     update_dict = data.model_dump(exclude_unset=True)
 
     if update_dict.get("category_id"):
-        cat_res = await session.execute(select(Category).where(Category.id == update_dict["category_id"]))
-        if not cat_res.scalars().first():
+        raw_cat = update_dict["category_id"]
+        cat = None
+        if isinstance(raw_cat, UUID):
+            cat_res = await session.execute(select(Category).where(Category.id == raw_cat))
+            cat = cat_res.scalars().first()
+        else:
+            try:
+                parsed_uuid = UUID(str(raw_cat).strip())
+                cat_res = await session.execute(select(Category).where(Category.id == parsed_uuid))
+                cat = cat_res.scalars().first()
+            except ValueError:
+                cat_res = await session.execute(
+                    select(Category).where(Category.name.ilike(str(raw_cat).strip()))
+                )
+                cat = cat_res.scalars().first()
+
+        if not cat:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Category with id '{update_dict['category_id']}' not found.",
+                detail=f"Category '{raw_cat}' not found.",
             )
+        update_dict["category_id"] = cat.id
 
     if update_dict.get("sku"):
         sku_res = await session.execute(

@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.category import CategoryRead
 
@@ -25,7 +25,7 @@ class ProductCreate(BaseModel):
     description: str | None = None
     sku: str = Field(..., max_length=100)
     barcode: str | None = Field(None, max_length=100)
-    category_id: UUID
+    category_id: UUID | str
     brand_id: UUID | None = None
     unit_of_measure: str = Field(default="units", max_length=50)
     unit_price: Decimal = Field(..., ge=0)
@@ -38,13 +38,47 @@ class ProductCreate(BaseModel):
     is_active: bool = True
     is_published: bool = False
 
+    @field_validator("cost_price", mode="before")
+    @classmethod
+    def parse_cost_price(cls, v):
+        if v == "" or v is None:
+            return None
+        return v
+
+    @field_validator("shelf_life_days", "reorder_point", "reorder_quantity", mode="before")
+    @classmethod
+    def parse_int_fields(cls, v):
+        if v == "" or v is None:
+            return None
+        return v
+
+    @field_validator("barcode", "description", "image_url", mode="before")
+    @classmethod
+    def parse_str_fields(cls, v):
+        if v == "":
+            return None
+        return v
+
+    @field_validator("category_id", mode="before")
+    @classmethod
+    def parse_category_id(cls, v):
+        if isinstance(v, UUID):
+            return v
+        if isinstance(v, str):
+            cleaned = v.strip()
+            try:
+                return UUID(cleaned)
+            except ValueError:
+                return cleaned
+        return v
+
 
 class ProductUpdate(BaseModel):
     name: str | None = Field(None, max_length=255)
     description: str | None = None
     sku: str | None = Field(None, max_length=100)
     barcode: str | None = Field(None, max_length=100)
-    category_id: UUID | None = None
+    category_id: UUID | str | None = None
     brand_id: UUID | None = None
     unit_of_measure: str | None = Field(None, max_length=50)
     unit_price: Decimal | None = Field(None, ge=0)
@@ -56,6 +90,44 @@ class ProductUpdate(BaseModel):
     image_url: str | None = Field(None, max_length=500)
     is_active: bool | None = None
     is_published: bool | None = None
+
+    @field_validator("cost_price", mode="before")
+    @classmethod
+    def parse_cost_price(cls, v):
+        if v == "" or v is None:
+            return None
+        return v
+
+    @field_validator("shelf_life_days", "reorder_point", "reorder_quantity", mode="before")
+    @classmethod
+    def parse_int_fields(cls, v):
+        if v == "" or v is None:
+            return None
+        return v
+
+    @field_validator("barcode", "description", "image_url", mode="before")
+    @classmethod
+    def parse_str_fields(cls, v):
+        if v == "":
+            return None
+        return v
+
+    @field_validator("category_id", mode="before")
+    @classmethod
+    def parse_category_id(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, UUID):
+            return v
+        if isinstance(v, str):
+            cleaned = v.strip()
+            if not cleaned:
+                return None
+            try:
+                return UUID(cleaned)
+            except ValueError:
+                return cleaned
+        return v
 
 
 class ProductRead(BaseModel):

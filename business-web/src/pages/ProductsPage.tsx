@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getProductsApi,
@@ -59,6 +59,12 @@ export const ProductsPage: React.FC = () => {
     queryKey: ['categories'],
     queryFn: () => getCategoriesApi(),
   });
+
+  useEffect(() => {
+    if (!categoryId && categoriesRes?.data && categoriesRes.data.length > 0) {
+      setCategoryId(categoriesRes.data[0].id);
+    }
+  }, [categoriesRes, categoryId]);
 
   const createMutation = useMutation({
     mutationFn: (data: ProductCreate) => createProductApi(data),
@@ -142,8 +148,32 @@ export const ProductsPage: React.FC = () => {
     e.preventDefault();
     setFormError(null);
 
-    if (!name || !sku || !categoryId || !unitPrice) {
+    const trimmedName = name.trim();
+    const trimmedSku = sku.trim();
+    const trimmedBarcode = barcode.trim();
+    const trimmedDescription = description.trim();
+    const trimmedImageUrl = imageUrl.trim();
+
+    if (!trimmedName || !trimmedSku || !categoryId || !unitPrice) {
       setFormError('Please fill in all required fields.');
+      return;
+    }
+
+    const parsedUnitPrice = parseFloat(unitPrice);
+    if (isNaN(parsedUnitPrice) || parsedUnitPrice < 0) {
+      setFormError('Please enter a valid unit selling price greater than or equal to 0.');
+      return;
+    }
+
+    const parsedCostPrice = costPrice && costPrice.trim() !== '' ? parseFloat(costPrice) : undefined;
+    if (parsedCostPrice !== undefined && (isNaN(parsedCostPrice) || parsedCostPrice < 0)) {
+      setFormError('Cost price must be greater than or equal to 0.');
+      return;
+    }
+
+    const parsedShelfLife = shelfLifeDays && shelfLifeDays.trim() !== '' ? parseInt(shelfLifeDays, 10) : undefined;
+    if (parsedShelfLife !== undefined && (isNaN(parsedShelfLife) || parsedShelfLife < 0)) {
+      setFormError('Shelf life must be a positive number of days.');
       return;
     }
 
@@ -151,30 +181,30 @@ export const ProductsPage: React.FC = () => {
       updateMutation.mutate({
         id: editingProduct.id,
         data: {
-          name,
-          description: description || undefined,
-          barcode: barcode || undefined,
+          name: trimmedName,
+          description: trimmedDescription || undefined,
+          barcode: trimmedBarcode || undefined,
           category_id: categoryId,
-          unit_price: parseFloat(unitPrice),
-          cost_price: costPrice ? parseFloat(costPrice) : undefined,
-          shelf_life_days: shelfLifeDays ? parseInt(shelfLifeDays, 10) : undefined,
+          unit_price: parsedUnitPrice,
+          cost_price: parsedCostPrice,
+          shelf_life_days: parsedShelfLife,
           has_expiry: hasExpiry,
-          image_url: imageUrl ? imageUrl : null,
+          image_url: trimmedImageUrl ? trimmedImageUrl : null,
           is_published: isPublished,
         },
       });
     } else {
       createMutation.mutate({
-        name,
-        description: description || undefined,
-        sku,
-        barcode: barcode || undefined,
+        name: trimmedName,
+        description: trimmedDescription || undefined,
+        sku: trimmedSku,
+        barcode: trimmedBarcode || undefined,
         category_id: categoryId,
-        unit_price: parseFloat(unitPrice),
-        cost_price: costPrice ? parseFloat(costPrice) : undefined,
-        shelf_life_days: shelfLifeDays ? parseInt(shelfLifeDays, 10) : undefined,
+        unit_price: parsedUnitPrice,
+        cost_price: parsedCostPrice,
+        shelf_life_days: parsedShelfLife,
         has_expiry: hasExpiry,
-        image_url: imageUrl || undefined,
+        image_url: trimmedImageUrl || undefined,
         is_published: isPublished,
       });
     }

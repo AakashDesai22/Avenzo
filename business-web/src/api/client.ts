@@ -211,11 +211,16 @@ async function request<T>(
       errorMessage = errorBody.message;
     }
 
+    const errorCode =
+      errorBody.error?.code ||
+      (typeof errorBody.error === 'string' ? errorBody.error : `HTTP_${response.status}`);
+
     return {
       success: false,
-      error: errorBody.error || {
-        code: errorBody.error?.code || `HTTP_${response.status}`,
+      error: {
+        code: errorCode,
         message: errorMessage,
+        details: errorBody.detail || errorBody.error?.details || errorBody,
       },
     };
   }
