@@ -194,11 +194,28 @@ async function request<T>(
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
+
+    let errorMessage = response.statusText || 'Request failed';
+    if (errorBody.error?.message) {
+      errorMessage = errorBody.error.message;
+    } else if (typeof errorBody.detail === 'string') {
+      errorMessage = errorBody.detail;
+    } else if (Array.isArray(errorBody.detail)) {
+      errorMessage = errorBody.detail
+        .map((d: any) => {
+          const field = Array.isArray(d.loc) ? d.loc.filter((l: any) => l !== 'body').join('.') : '';
+          return field ? `${field}: ${d.msg || 'Invalid value'}` : d.msg || JSON.stringify(d);
+        })
+        .join('; ');
+    } else if (errorBody.message) {
+      errorMessage = errorBody.message;
+    }
+
     return {
       success: false,
       error: errorBody.error || {
-        code: `HTTP_${response.status}`,
-        message: response.statusText || 'Request failed',
+        code: errorBody.error?.code || `HTTP_${response.status}`,
+        message: errorMessage,
       },
     };
   }

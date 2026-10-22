@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
@@ -25,17 +26,17 @@ async def create_product(session: AsyncSession, data: ProductCreate, created_by_
             detail=f"Category with id '{data.category_id}' not found.",
         )
 
-    # Check for duplicate SKU
-    sku_res = await session.execute(select(Product).where(Product.sku == data.sku, Product.is_deleted == False))
+    # Check for duplicate SKU across all records (DB unique constraint)
+    sku_res = await session.execute(select(Product).where(Product.sku == data.sku))
     if sku_res.scalars().first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Product with SKU '{data.sku}' already exists.",
         )
 
-    # Check for duplicate barcode if provided
+    # Check for duplicate barcode if provided across all records (DB unique constraint)
     if data.barcode:
-        bc_res = await session.execute(select(Product).where(Product.barcode == data.barcode, Product.is_deleted == False))
+        bc_res = await session.execute(select(Product).where(Product.barcode == data.barcode))
         if bc_res.scalars().first():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -62,8 +63,26 @@ async def create_product(session: AsyncSession, data: ProductCreate, created_by_
         created_by=created_by_id,
     )
 
-    session.add(product)
-    await session.commit()
+    try:
+        session.add(product)
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        err_msg = str(exc.orig).lower() if hasattr(exc, "orig") else str(exc).lower()
+        if "sku" in err_msg or "products_sku_key" in err_msg:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Product with SKU '{data.sku}' already exists.",
+            )
+        if "barcode" in err_msg or "products_barcode_key" in err_msg:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Product with barcode '{data.barcode}' already exists.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Database integrity error while creating product.",
+        )
 
     return await get_product_by_id(session, product.id)
 
@@ -151,10 +170,49 @@ async def update_product(session: AsyncSession, product_id: UUID, data: ProductU
                 detail=f"Category with id '{update_dict['category_id']}' not found.",
             )
 
+    if update_dict.get("sku"):
+        sku_res = await session.execute(
+            select(Product).where(Product.sku == update_dict["sku"], Product.id != product_id)
+        )
+        if sku_res.scalars().first():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Product with SKU '{update_dict['sku']}' already exists.",
+            )
+
+    if update_dict.get("barcode"):
+        bc_res = await session.execute(
+            select(Product).where(Product.barcode == update_dict["barcode"], Product.id != product_id)
+        )
+        if bc_res.scalars().first():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Product with barcode '{update_dict['barcode']}' already exists.",
+            )
+
     for key, value in update_dict.items():
         setattr(product, key, value)
 
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        err_msg = str(exc.orig).lower() if hasattr(exc, "orig") else str(exc).lower()
+        if "sku" in err_msg or "products_sku_key" in err_msg:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Product with SKU '{update_dict.get('sku', product.sku)}' already exists.",
+            )
+        if "barcode" in err_msg or "products_barcode_key" in err_msg:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Product with barcode '{update_dict.get('barcode', product.barcode)}' already exists.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Database integrity error while updating product.",
+        )
+
     return await get_product_by_id(session, product_id)
 
 

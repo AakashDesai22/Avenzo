@@ -3,13 +3,14 @@
  * Verifies API_URL normalization, token storage helpers, and endpoint URL composition.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   API_URL,
   getAccessToken,
   getRefreshToken,
   setTokens,
   clearTokens,
+  apiPost,
 } from '../api/client';
 
 describe('API Client Configuration and Token Storage', () => {
@@ -44,4 +45,47 @@ describe('API Client Configuration and Token Storage', () => {
     expect(fullEndpoint.endsWith('/api/v1/pantry')).toBe(true);
     expect(fullEndpoint.includes('/api/v1/api/v1')).toBe(false);
   });
+
+  it('safely extracts FastAPI detail string error message instead of generic Request failed', async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 409,
+        statusText: '',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: () => Promise.resolve({ detail: "A product with SKU '123' already exists" }),
+      } as unknown as Response);
+
+      const res = await apiPost('/products', { sku: '123' });
+      expect(res.success).toBe(false);
+      expect(res.error?.message).toBe("A product with SKU '123' already exists");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('safely extracts FastAPI 422 list validation errors into formatted message', async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        statusText: '',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: () => Promise.resolve({
+          detail: [
+            { loc: ['body', 'sku'], msg: 'Field required' }
+          ]
+        }),
+      } as unknown as Response);
+
+      const res = await apiPost('/products', {});
+      expect(res.success).toBe(false);
+      expect(res.error?.message).toBe('sku: Field required');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
+

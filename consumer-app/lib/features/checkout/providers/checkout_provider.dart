@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/utils/uuid_generator.dart';
 import '../../orders/domain/consumer_order_model.dart';
 import '../data/checkout_repository.dart';
@@ -76,6 +77,14 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
         createdOrder: order,
       );
       return order;
+    } on ApiException catch (e) {
+      state = state.copyWith(
+        isSubmitting: false,
+        errorMessage: e.message.isNotEmpty
+            ? e.message
+            : 'Checkout failed. Please check item availability and retry.',
+      );
+      return null;
     } catch (e) {
       final message = e.toString().contains('400')
           ? 'Stock or validation error during checkout. Please verify item availability in cart.'

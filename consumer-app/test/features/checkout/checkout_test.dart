@@ -3,6 +3,7 @@ import 'package:avenzo_consumer/core/utils/uuid_generator.dart';
 import 'package:avenzo_consumer/features/checkout/data/checkout_repository.dart';
 import 'package:avenzo_consumer/features/checkout/providers/checkout_provider.dart';
 import 'package:avenzo_consumer/core/network/api_client.dart';
+import 'package:avenzo_consumer/core/network/api_exception.dart';
 import 'package:dio/dio.dart';
 
 class MockApiClientForCheckout extends ApiClient {
@@ -74,5 +75,62 @@ void main() {
       expect(order?.orderNumber, 'ORD-2026-0099');
       expect(order?.totalAmount, 155.00);
     });
+
+    test('CheckoutNotifier surfaces ApiException message on failure (e.g. stock insufficiency)', () async {
+      final mockDio = Dio();
+      final mockClient = MockErrorApiClient(
+        errorToThrow: ApiException(
+          message: "Insufficient stock available for 'Testing pro 1'. Requested: 1, Available: 0.",
+          statusCode: 400,
+        ),
+      );
+      final repo = CheckoutRepository(apiClient: mockClient);
+      final notifier = CheckoutNotifier(repository: repo);
+
+      final order = await notifier.submitCheckout(
+        shippingAddress: '123 Main St, Austin TX',
+        paymentMethod: 'MOCK_PAYMENT',
+      );
+
+      expect(order, isNull);
+      expect(notifier.state.errorMessage, "Insufficient stock available for 'Testing pro 1'. Requested: 1, Available: 0.");
+      expect(notifier.state.isSubmitting, false);
+    });
+
+    test('ApiException.fromDioError correctly extracts list of Pydantic validation errors', () {
+      final dioError = DioException(
+        requestOptions: RequestOptions(path: '/orders'),
+        type: DioExceptionType.badResponse,
+        response: Response(
+          requestOptions: RequestOptions(path: '/orders'),
+          statusCode: 422,
+          data: {
+            'detail': [
+              {
+                'loc': ['body', 'shipping_address'],
+                'msg': 'Field required',
+                'type': 'missing',
+              }
+            ]
+          },
+        ),
+      );
+
+      final apiException = ApiException.fromDioError(dioError);
+      expect(apiException.statusCode, 422);
+      expect(apiException.message, 'shipping_address: Field required');
+    });
   });
 }
+
+class MockErrorApiClient extends ApiClient {
+  final Object errorToThrow;
+
+  MockErrorApiClient({required this.errorToThrow}) : super(customDio: Dio());
+
+  @override
+  Future<Response<T>> post<T>(String path, {dynamic data, Map<String, dynamic>? queryParameters, Options? options}) async {
+    throw errorToThrow;
+  }
+}
+

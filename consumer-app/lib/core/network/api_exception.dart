@@ -34,10 +34,25 @@ class ApiException implements Exception {
         final response = error.response;
         if (response != null && response.data is Map<String, dynamic>) {
           final data = response.data as Map<String, dynamic>;
-          final message = data['message'] as String? ??
-              data['detail'] as String? ??
-              'An error occurred (${response.statusCode}).';
-          final errorCode = data['error'] as String?;
+          String message = 'An error occurred (${response.statusCode}).';
+          if (data['message'] is String && (data['message'] as String).isNotEmpty) {
+            message = data['message'] as String;
+          } else if (data['detail'] is String) {
+            message = data['detail'] as String;
+          } else if (data['detail'] is List) {
+            final detailsList = data['detail'] as List;
+            final msgs = detailsList.map((item) {
+              if (item is Map && item['msg'] != null) {
+                final loc = item['loc'];
+                final field = (loc is List) ? loc.where((l) => l != 'body').join('.') : '';
+                return field.isNotEmpty ? '$field: ${item['msg']}' : item['msg'].toString();
+              }
+              return item.toString();
+            }).join('; ');
+            if (msgs.isNotEmpty) message = msgs;
+          }
+
+          final errorCode = data['error'] is String ? data['error'] as String : null;
 
           return ApiException(
             message: message,

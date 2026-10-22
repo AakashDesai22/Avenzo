@@ -272,3 +272,61 @@ async def test_publish_product_validations(client: AsyncClient, admin_headers: d
     assert stock_fail.status_code == 400
     assert "stock" in stock_fail.json()["detail"].lower()
 
+
+@pytest.mark.asyncio
+async def test_product_duplicate_barcode_rejected(client: AsyncClient, admin_headers: dict):
+    """Test product creation with duplicate barcode fails with 409 Conflict."""
+    cat = await client.post("/api/v1/categories", json={"name": "Barcode Cat"}, headers=admin_headers)
+    cat_id = cat.json()["data"]["id"]
+
+    # First product with barcode
+    p1 = await client.post(
+        "/api/v1/products",
+        json={"name": "Prod 1", "sku": "BC-SKU-001", "barcode": "5198111", "category_id": cat_id, "unit_price": "22.00"},
+        headers=admin_headers,
+    )
+    assert p1.status_code == 201
+
+    # Second product with duplicate barcode
+    p2 = await client.post(
+        "/api/v1/products",
+        json={"name": "Prod 2", "sku": "BC-SKU-002", "barcode": "5198111", "category_id": cat_id, "unit_price": "25.00"},
+        headers=admin_headers,
+    )
+    assert p2.status_code == 409
+    assert "barcode" in p2.json()["detail"].lower()
+    assert "5198111" in p2.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_product_update_duplicate_sku_and_barcode_rejected(client: AsyncClient, admin_headers: dict):
+    """Test updating product with existing SKU or barcode of another product fails with 409."""
+    cat = await client.post("/api/v1/categories", json={"name": "Collision Cat"}, headers=admin_headers)
+    cat_id = cat.json()["data"]["id"]
+
+    p1 = await client.post(
+        "/api/v1/products",
+        json={"name": "P1", "sku": "COLL-001", "barcode": "BC-COLL-001", "category_id": cat_id, "unit_price": "10.00"},
+        headers=admin_headers,
+    )
+    assert p1.status_code == 201
+
+    p2 = await client.post(
+        "/api/v1/products",
+        json={"name": "P2", "sku": "COLL-002", "barcode": "BC-COLL-002", "category_id": cat_id, "unit_price": "15.00"},
+        headers=admin_headers,
+    )
+    assert p2.status_code == 201
+    p2_id = p2.json()["data"]["id"]
+
+    # Updating P2 with P1's SKU should fail with 409
+    up_sku = await client.put(f"/api/v1/products/{p2_id}", json={"sku": "COLL-001"}, headers=admin_headers)
+    assert up_sku.status_code == 409
+    assert "sku" in up_sku.json()["detail"].lower()
+
+    # Updating P2 with P1's barcode should fail with 409
+    up_bc = await client.put(f"/api/v1/products/{p2_id}", json={"barcode": "BC-COLL-001"}, headers=admin_headers)
+    assert up_bc.status_code == 409
+    assert "barcode" in up_bc.json()["detail"].lower()
+
+
