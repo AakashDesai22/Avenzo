@@ -110,3 +110,4 @@ consumer-app/pubspec.lock
 
 # Docker / Logs
 *.pid
+*.zip

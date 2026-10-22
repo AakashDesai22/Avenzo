@@ -60,7 +60,7 @@ export const WarehousesPage: React.FC = () => {
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Fetch Warehouses
-  const { data: warehousesRes, isLoading } = useQuery({
+  const { data: warehousesRes, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['warehousesOverview', filterActiveOnly],
     queryFn: () => getWarehousesApi({ active_only: filterActiveOnly }),
   });
@@ -385,6 +385,46 @@ export const WarehousesPage: React.FC = () => {
           >
             Loading warehouse facilities...
           </div>
+        ) : isError || (warehousesRes && !warehousesRes.success) ? (
+          <div
+            style={{
+              padding: '3rem 2rem',
+              textAlign: 'center',
+              backgroundColor: 'var(--color-surface)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '1rem',
+            }}
+          >
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: '50%',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                color: '#ef4444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <AlertCircle size={28} />
+            </div>
+            <div>
+              <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.125rem', color: 'var(--color-text-primary)' }}>
+                Unable to load warehouse facilities
+              </h3>
+              <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--color-text-secondary)', maxWidth: '420px' }}>
+                {warehousesRes?.error?.message || (error as Error)?.message || 'Failed to communicate with warehouse service.'}
+              </p>
+            </div>
+            <Button variant="secondary" onClick={() => refetch()}>
+              Retry
+            </Button>
+          </div>
         ) : filteredWarehouses.length === 0 ? (
           <div
             style={{
@@ -423,10 +463,14 @@ export const WarehousesPage: React.FC = () => {
                   : 'Get started by creating your primary storage facility or distribution center.'}
               </p>
             </div>
-            {canManage && (
+            {canManage ? (
               <Button onClick={handleOpenCreateWarehouse} style={{ marginTop: '0.5rem' }}>
                 <Plus size={18} /> Create First Warehouse
               </Button>
+            ) : (
+              <p style={{ margin: '0.5rem 0 0', fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+                You have read-only access. Contact an administrator to register warehouse facilities.
+              </p>
             )}
           </div>
         ) : (
